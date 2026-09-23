@@ -1,6 +1,6 @@
 <div align="center">
 
-<![Uploading just-flip.gif…]()>
+
 
 # Just Flip
 
