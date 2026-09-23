@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="just-flip.gif" width="260" alt="Just Flip">
+<![Uploading just-flip.gif…]()>
 
 # Just Flip
 
