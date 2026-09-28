@@ -1,6 +1,6 @@
 <div align="center">
 
-
+<img src="just-flip.gif" width="260" alt="Just Flip">
 
 # Just Flip
 
@@ -13,7 +13,7 @@ A retro arcade coin toss. Call Heads or Tails, throw the coin, and see how long 
 ![build step](https://img.shields.io/badge/build%20step-none-A78BFA?style=flat-square)
 ![license](https://img.shields.io/badge/license-MIT-D8B4FE?style=flat-square)
 
-[How it plays](#how-it-plays) · [Under the hood](#under-the-hood) · [What's next](#whats-next)
+**[Play now](https://justflip-coin.github.io/justflipcoin/)** · [How it plays](#how-it-plays) · [Under the hood](#under-the-hood) · [What's next](#whats-next)
 
 </div>
 
