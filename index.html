@@ -775,6 +775,46 @@
     white-space:nowrap;
   }
 
+  /* ---------- LEADERBOARD ---------- */
+  .lb{margin-top:18px;}
+  .lb-label{
+    font-size:13px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    margin-bottom:8px;
+  }
+  .lb-list{display:flex; flex-direction:column; gap:6px;}
+  .lb-row{
+    display:grid;
+    grid-template-columns:26px 1fr auto;
+    gap:10px;
+    align-items:center;
+    background:var(--panel);
+    border:2px solid var(--panel-line);
+    padding:9px 11px;
+  }
+  .lb-row.me{border-color:var(--amber);}
+  .lb-rank{
+    font-family:var(--font-display);
+    font-size:9px;
+    color:var(--amber-bright);
+  }
+  .lb-name{
+    font-size:17px;
+    letter-spacing:.05em;
+    color:var(--text);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .lb-streak{
+    font-family:var(--font-display);
+    font-size:10px;
+    color:var(--amber-bright);
+  }
+  .lb-empty{font-size:16px; color:var(--text-dim);}
+
   /* ---------- STATUS BAR ---------- */
   .statusbar{
     margin-top:auto;
@@ -926,6 +966,11 @@
   <div class="history-wrap">
     <p class="history-label">History</p>
     <div class="history" id="history"></div>
+  </div>
+
+  <div class="lb">
+    <p class="lb-label">Leaderboard</p>
+    <div class="lb-list" id="lbList"><span class="lb-empty">Loading...</span></div>
   </div>
 
   <section class="howto">
@@ -1234,6 +1279,76 @@
     }
   }
 
+  /* Shared leaderboard. The key below is the publishable one, meant to sit in
+     client code: it can read scores and add one, nothing else. */
+  var SUPA_URL = 'https://ajcgmatgejbiikleszxi.supabase.co';
+  var SUPA_KEY = 'sb_publishable_WlwpsgC07FSydYNqWlLkjw_lMnjErnW';
+
+  function supaHeaders(){
+    return {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json'
+    };
+  }
+
+  function submitScore(name, streak){
+    if(!name || !streak || streak < 1) return;
+    try{
+      fetch(SUPA_URL + '/rest/v1/scores', {
+        method: 'POST',
+        headers: supaHeaders(),
+        body: JSON.stringify({ name: String(name).slice(0, 16), streak: streak })
+      }).then(loadLeaderboard).catch(function(){});
+    }catch(e){}
+  }
+
+  function loadLeaderboard(){
+    var el = document.getElementById('lbList');
+    if(!el) return;
+    try{
+      fetch(SUPA_URL + '/rest/v1/scores?select=name,streak&order=streak.desc&limit=100',
+            { headers: supaHeaders() })
+        .then(function(r){ return r.json(); })
+        .then(function(rows){
+          if(!rows || !rows.length){
+            el.innerHTML = '<span class="lb-empty">No scores yet. Be the first.</span>';
+            return;
+          }
+          // one entry per player, their best run only
+          var best = {}, names = [];
+          rows.forEach(function(r){
+            if(best[r.name] === undefined){ best[r.name] = r.streak; names.push(r.name); }
+            else if(r.streak > best[r.name]){ best[r.name] = r.streak; }
+          });
+          names.sort(function(a, b){ return best[b] - best[a]; });
+          var top = names.slice(0, 10);
+
+          el.innerHTML = '';
+          top.forEach(function(n, i){
+            var row = document.createElement('div');
+            row.className = 'lb-row' + (n === state.name ? ' me' : '');
+            var rank = document.createElement('span');
+            rank.className = 'lb-rank';
+            rank.textContent = i + 1;
+            var nm = document.createElement('span');
+            nm.className = 'lb-name';
+            nm.textContent = n;          // textContent, never innerHTML: names come from strangers
+            var st = document.createElement('span');
+            st.className = 'lb-streak';
+            st.textContent = best[n];
+            row.appendChild(rank); row.appendChild(nm); row.appendChild(st);
+            el.appendChild(row);
+          });
+        })
+        .catch(function(){
+          el.innerHTML = '<span class="lb-empty">Could not reach the leaderboard.</span>';
+        });
+    }catch(e){
+      el.innerHTML = '<span class="lb-empty">Could not reach the leaderboard.</span>';
+    }
+  }
+
   function beginPlay(){
     startScreen.classList.remove('on');
     document.body.classList.add('in-game');
@@ -1243,6 +1358,7 @@
     flipBtn.focus();
     renderStats();
     renderHistory();
+    loadLeaderboard();
     music.start();
   }
 
@@ -1914,7 +2030,10 @@
       if(hit){
         state.called += 1;
         state.streak += 1;
-        if(state.streak > state.best) state.best = state.streak;
+        if(state.streak > state.best){
+          state.best = state.streak;
+          submitScore(state.name, state.best);
+        }
       }else{
         state.streak = 0;
       }
