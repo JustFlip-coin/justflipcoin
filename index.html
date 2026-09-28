@@ -1,0 +1,2065 @@
+<title>Just Flip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* Royal violet palette. The token names still say "amber" on purpose: they are
+       referenced in ~40 places, and renaming them all invites a missed spot and a
+       patchy two-tone UI. The coins stay gold and silver. */
+    --ink:#0D0818;
+    --panel:#160F28;
+    --panel-line:rgba(167,139,250,.28);
+    --amber:#A78BFA;
+    --amber-bright:#D8B4FE;
+    --amber-dim:#4C2E8A;
+    --copper:#E0672B;
+    --copper-bright:#FF9257;
+    --steel:#B9C8D4;
+    --steel-bright:#EEF4F8;
+    --text:#CBB6F5;
+    --text-dim:#8A7CA8;
+    --good:#8ED16A;
+    --bad:#E06356;
+    --font-display:'Press Start 2P', ui-monospace, monospace;
+    --font-body:'VT323', ui-monospace, monospace;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(circle, rgba(167,139,250,.09) 1px, transparent 1.4px) 0 0/24px 24px,
+      radial-gradient(ellipse 900px 500px at 50% 0%, #241242, transparent 60%),
+      var(--ink);
+    color:var(--text);
+    font-family:var(--font-body);
+    display:flex;
+    justify-content:center;
+    padding:0;
+    position:relative;
+    overflow-x:hidden;
+  }
+
+  body::after{
+    content:'';
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    background:repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0) 0px,
+      rgba(0,0,0,0) 1px,
+      rgba(0,0,0,.16) 2px,
+      rgba(0,0,0,.16) 3px
+    );
+    z-index:40;
+    mix-blend-mode:multiply;
+  }
+  body::before{
+    content:'';
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    box-shadow:inset 0 0 120px rgba(0,0,0,.5);
+    z-index:41;
+  }
+
+  #bg{
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100%;
+    z-index:0;
+    pointer-events:none;
+  }
+  /* the boot overlay is translucent so the animated backdrop shows through it, but
+     the game UI sits between the two - left visible it ghosts through as a second
+     screen stacked behind the loading text */
+  body:not(.in-game) .wrap{
+    opacity:0;
+    pointer-events:none;
+  }
+  .wrap{
+    width:100%;
+    max-width:640px;
+    min-height:100vh;
+    transition:opacity .45s ease;
+    display:flex;
+    flex-direction:column;
+    padding:16px 18px 14px;
+    position:relative;
+    z-index:1;
+  }
+
+  /* ---------- BOOT ---------- */
+  #boot{
+    position:fixed;
+    inset:0;
+    z-index:50;
+    /* translucent, so the animated backdrop already running underneath shows through
+       during loading instead of being hidden behind a flat black fill */
+    background:
+      radial-gradient(ellipse 680px 400px at 50% 40%, rgba(66,34,120,.5), transparent 72%),
+      linear-gradient(180deg, rgba(13,8,24,.94), rgba(13,8,24,.82) 50%, rgba(13,8,24,.94));
+    -webkit-backdrop-filter:blur(1.5px);
+    backdrop-filter:blur(1.5px);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:26px;
+    padding:24px;
+    text-align:center;
+    transition:opacity .5s ease;
+  }
+  #boot.hide{opacity:0; pointer-events:none;}
+  .boot-logo{
+    font-family:var(--font-display);
+    font-size:clamp(18px,5.2vw,30px);
+    color:var(--amber-bright);
+    text-shadow:0 0 6px rgba(216,180,254,.55), 0 0 22px rgba(167,139,250,.35);
+    letter-spacing:.04em;
+  }
+  .boot-sub{
+    font-size:16px;
+    letter-spacing:.14em;
+    color:var(--text-dim);
+    text-transform:uppercase;
+    text-shadow:0 1px 3px rgba(13,8,24,.95);
+  }
+  .boot-bar-label, .boot-status{
+    text-shadow:0 1px 3px rgba(13,8,24,.95);
+  }
+  .boot-dino{
+    width:240px;
+    max-width:82vw;
+    height:72px;
+    display:block;
+    image-rendering:pixelated;
+  }
+  .boot-bar-row{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    width:min(320px,80vw);
+  }
+  .boot-bar-label{
+    display:flex;
+    justify-content:space-between;
+    font-size:14px;
+    letter-spacing:.12em;
+    color:var(--text-dim);
+    text-transform:uppercase;
+  }
+  .boot-bar-label span:last-child{color:var(--amber-bright);}
+  .boot-blocks{
+    display:flex;
+    gap:3px;
+    height:16px;
+    border:2px solid var(--amber-dim);
+    padding:2px;
+  }
+  .boot-blocks i{
+    flex:1;
+    background:rgba(167,139,250,.12);
+    display:block;
+  }
+  .boot-blocks i.lit{
+    background:linear-gradient(180deg,var(--amber-bright),var(--amber));
+    box-shadow:0 0 6px rgba(216,180,254,.7);
+  }
+  .boot-status{
+    font-size:14px;
+    letter-spacing:.08em;
+    color:var(--text-dim);
+    min-height:16px;
+  }
+  .boot-enter{
+    font-family:var(--font-display);
+    font-size:12px;
+    letter-spacing:.05em;
+    color:#160B2E;
+    background:linear-gradient(180deg,var(--amber-bright),var(--amber));
+    border:2px solid #000;
+    box-shadow:0 0 0 2px var(--amber-dim);
+    padding:12px 22px;
+    cursor:pointer;
+    opacity:0;
+    pointer-events:none;
+    transform:translateY(4px);
+    transition:opacity .3s ease, transform .3s ease;
+  }
+  #boot.ready .boot-enter{
+    opacity:1;
+    pointer-events:auto;
+    transform:translateY(0);
+    animation:enterPulse 1.1s ease-in-out infinite;
+  }
+  @keyframes enterPulse{
+    0%,100%{box-shadow:0 0 0 2px var(--amber-dim);}
+    50%{box-shadow:0 0 0 2px var(--amber-dim), 0 0 18px rgba(216,180,254,.55);}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    #boot.ready .boot-enter{animation:none;}
+    .boot-enter{transition:none;}
+  }
+
+  /* ---------- TOP BAR ---------- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding-bottom:14px;
+    border-bottom:2px solid var(--panel-line);
+    flex-wrap:wrap;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:9px;
+  }
+  .brand-name{
+    font-family:var(--font-display);
+    font-size:13px;
+    color:var(--amber-bright);
+    letter-spacing:.03em;
+    text-shadow:0 0 8px rgba(167,139,250,.35);
+  }
+  .topbar-right{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .pill{
+    font-family:var(--font-body);
+    font-size:16px;
+    letter-spacing:.02em;
+    padding:5px 14px 4px;
+    border-radius:999px;
+    border:1px solid rgba(167,139,250,.18);
+    background:rgba(167,139,250,.08);
+    -webkit-backdrop-filter:blur(10px);
+    backdrop-filter:blur(10px);
+    color:var(--text);
+    cursor:default;
+    display:flex;
+    align-items:center;
+    gap:7px;
+  }
+  .pill .dot{
+    width:6px;height:6px;
+    border-radius:50%;
+    background:var(--amber-bright);
+    box-shadow:0 0 8px rgba(216,180,254,.85);
+    transition:background .25s ease, box-shadow .25s ease;
+  }
+  .pill.busy .dot{
+    background:var(--copper-bright);
+    box-shadow:0 0 8px rgba(255,146,87,.85);
+  }
+
+  .icon-btn{
+    width:32px;height:32px;
+    padding:0;
+    border-radius:50%;
+    border:1px solid rgba(167,139,250,.18);
+    background:rgba(167,139,250,.08);
+    -webkit-backdrop-filter:blur(10px);
+    backdrop-filter:blur(10px);
+    color:var(--text-dim);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    transition:background .2s ease, border-color .2s ease, color .2s ease, transform .12s ease;
+  }
+  .icon-btn:hover{
+    background:rgba(167,139,250,.16);
+    border-color:rgba(167,139,250,.38);
+    color:var(--amber-bright);
+  }
+  .icon-btn:active{transform:scale(.93);}
+  .icon-btn:focus-visible{outline:2px solid var(--amber-bright); outline-offset:3px;}
+  .icon-btn svg{width:17px;height:17px;display:block;}
+  .icon-btn[aria-pressed="true"]{opacity:.65;}
+  .icon-btn .slash{display:none;}
+  .icon-btn[aria-pressed="true"] .slash{display:block;}
+  .icon-btn[aria-pressed="true"] .wave{display:none;}
+
+  /* ---------- HERO ---------- */
+  .hero{
+    text-align:center;
+    padding:22px 4px 6px;
+  }
+  .eyebrow{
+    font-size:14px;
+    letter-spacing:.24em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    margin:0 0 10px;
+  }
+  h1{
+    font-family:var(--font-display);
+    font-size:clamp(26px,7.4vw,42px);
+    margin:0 0 12px;
+    color:var(--amber-bright);
+    text-shadow:0 0 10px rgba(167,139,250,.45), 0 0 30px rgba(167,139,250,.22);
+    letter-spacing:.02em;
+    text-wrap:balance;
+  }
+  .sub{
+    font-size:18px;
+    line-height:1.5;
+    color:var(--text-dim);
+    max-width:42ch;
+    margin:0 auto;
+    text-wrap:balance;
+  }
+  .sub b{color:var(--text); font-weight:400;}
+
+  /* ---------- CALL SELECTOR ---------- */
+  .call-row{
+    display:flex;
+    justify-content:center;
+    gap:0;
+    margin:22px 0 4px;
+  }
+  .call-label{
+    font-size:14px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    text-align:center;
+    margin-bottom:10px;
+  }
+  .call-toggle{
+    display:inline-flex;
+    border:2px solid var(--panel-line);
+  }
+  .call-btn{
+    font-family:var(--font-body);
+    font-size:18px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    padding:10px 22px;
+    background:var(--panel);
+    color:var(--text-dim);
+    border:none;
+    cursor:pointer;
+  }
+  .call-btn + .call-btn{border-left:2px solid var(--panel-line);}
+  .call-btn[aria-pressed="true"]{
+    background:linear-gradient(180deg,var(--amber-bright),var(--amber));
+    color:#160B2E;
+  }
+  .call-btn.tails[aria-pressed="true"]{
+    background:linear-gradient(180deg,var(--steel-bright),var(--steel));
+    color:#16202A;
+  }
+  .call-btn:focus-visible{outline:2px solid var(--amber-bright); outline-offset:2px;}
+
+  /* ---------- COIN STAGE ---------- */
+  .stage{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:20px;
+    padding:26px 10px 8px;
+    position:relative;
+  }
+  .stage-glow{
+    position:absolute;
+    top:22px; left:50%;
+    width:280px;height:280px;
+    transform:translateX(-50%);
+    background:radial-gradient(circle, rgba(167,139,250,.26), transparent 68%);
+    opacity:0;
+    transition:opacity .25s ease;
+    pointer-events:none;
+  }
+  .stage-glow.on{opacity:1;}
+
+  .coin-stage{
+    perspective:1100px;
+    width:clamp(150px,38vw,208px);
+    aspect-ratio:1;
+    position:relative;
+    z-index:1;
+  }
+  .coin{
+    position:relative;
+    width:100%;
+    height:100%;
+    cursor:pointer;
+  }
+  .coin-shadow{
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    background:rgba(0,0,0,.5);
+    transform:translateY(14px);
+    pointer-events:none;
+  }
+  .coin:focus-visible{outline:none;}
+  .coin:focus-visible .coin-art{outline:2px solid var(--amber-bright); outline-offset:5px;}
+  .coin-art{
+    position:relative;
+    width:100%;
+    height:100%;
+    image-rendering:pixelated;
+    transform:scaleX(1);
+    transition:transform 90ms linear;
+  }
+  .coin-art svg{width:100%;height:100%; shape-rendering:crispEdges; display:block;}
+
+  /* the landing beat: impact ring, weight, and a result that punches in */
+  .shock{
+    position:absolute;
+    inset:-6%;
+    border-radius:50%;
+    border:3px solid var(--amber-bright);
+    opacity:0;
+    pointer-events:none;
+    z-index:2;
+  }
+  .shock.miss{border-color:var(--text-dim);}
+  .shock.go{animation:shockwave .55s cubic-bezier(.2,.7,.3,1);}
+  @keyframes shockwave{
+    0%{transform:scale(.55); opacity:.9;}
+    100%{transform:scale(1.85); opacity:0;}
+  }
+
+  .coin.landed{animation:coinLand .45s cubic-bezier(.2,.9,.3,1);}
+  @keyframes coinLand{
+    0%{transform:scale(1.12,.86);}
+    40%{transform:scale(.94,1.07);}
+    70%{transform:scale(1.03,.98);}
+    100%{transform:scale(1,1);}
+  }
+
+  .result-line.pop{animation:resultPop .4s cubic-bezier(.2,1.5,.4,1);}
+  @keyframes resultPop{
+    0%{transform:scale(.7); opacity:.2;}
+    60%{transform:scale(1.08);}
+    100%{transform:scale(1); opacity:1;}
+  }
+
+  .flip-btn{
+    font-family:var(--font-display);
+    font-size:14px;
+    letter-spacing:.04em;
+    color:#160B2E;
+    background:linear-gradient(180deg,var(--amber-bright),var(--amber));
+    border:2px solid #000;
+    box-shadow:0 0 0 2px var(--amber-dim), 0 6px 0 var(--amber-dim), 0 6px 18px rgba(167,139,250,.35);
+    padding:14px 26px;
+    cursor:pointer;
+  }
+  .flip-btn:hover:not(:disabled){filter:brightness(1.07);}
+  .flip-btn:active:not(:disabled){transform:translateY(4px); box-shadow:0 0 0 2px var(--amber-dim), 0 2px 0 var(--amber-dim);}
+  .flip-btn:disabled{opacity:.5; cursor:default;}
+  .flip-btn:focus-visible{outline:2px solid var(--amber-bright); outline-offset:4px;}
+
+  .result-line{
+    min-height:22px;
+    font-size:19px;
+    letter-spacing:.03em;
+    color:var(--text-dim);
+    text-transform:uppercase;
+  }
+  .result-line b{color:var(--amber-bright);}
+  .result-line.miss b{color:var(--bad);}
+  .result-line.match b{color:var(--good);}
+
+  /* ---------- START SCREEN ---------- */
+  .start{
+    position:fixed;
+    inset:0;
+    z-index:48;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .35s ease;
+    background:
+      radial-gradient(ellipse 680px 400px at 50% 45%, rgba(66,34,120,.5), transparent 72%),
+      linear-gradient(180deg, rgba(13,8,24,.94), rgba(13,8,24,.84) 50%, rgba(13,8,24,.94));
+    -webkit-backdrop-filter:blur(2px);
+    backdrop-filter:blur(2px);
+  }
+  .start.on{opacity:1; pointer-events:auto;}
+  .start-card{
+    width:100%;
+    max-width:380px;
+    border:2px solid var(--panel-line);
+    background:var(--panel);
+    padding:22px 20px 20px;
+    text-align:center;
+  }
+  .start-eyebrow{
+    font-family:var(--font-mono, var(--font-body));
+    font-size:13px;
+    letter-spacing:.24em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    margin:0 0 14px;
+  }
+  .start-name{
+    font-family:var(--font-display);
+    font-size:15px;
+    line-height:1.5;
+    color:var(--amber-bright);
+    margin:0 0 10px;
+    text-shadow:0 0 10px rgba(167,139,250,.4);
+  }
+  .start-line{
+    font-size:17px;
+    letter-spacing:.06em;
+    color:var(--text-dim);
+    margin:0 0 14px;
+    display:block;
+  }
+  .start-input{
+    font-family:var(--font-display);
+    font-size:14px;
+    width:100%;
+    padding:13px 12px;
+    margin-bottom:16px;
+    text-align:center;
+    text-transform:uppercase;
+    color:var(--amber-bright);
+    background:rgba(167,139,250,.08);
+    border:2px solid var(--panel-line);
+    outline:none;
+  }
+  .start-input:focus{border-color:var(--amber);}
+  .start-actions{display:flex; gap:9px; justify-content:center; flex-wrap:wrap;}
+  .start-btn{
+    font-family:var(--font-display);
+    font-size:11px;
+    letter-spacing:.04em;
+    padding:13px 18px;
+    cursor:pointer;
+    color:var(--text);
+    background:var(--panel);
+    border:2px solid var(--panel-line);
+  }
+  .start-btn:hover{border-color:var(--amber);}
+  .start-btn:focus-visible{outline:2px solid var(--amber-bright); outline-offset:3px;}
+  .start-note{
+    font-size:15px;
+    line-height:1.45;
+    color:var(--text-dim);
+    margin:12px 0 0;
+    min-height:20px;
+  }
+  .start-btn.primary{
+    color:#160B2E;
+    background:linear-gradient(180deg,var(--amber-bright),var(--amber));
+    border-color:#000;
+    box-shadow:0 0 0 2px var(--amber-dim);
+  }
+
+  /* ---------- JACKPOT ---------- */
+  .jackpot{
+    position:fixed;
+    inset:0;
+    z-index:45;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity .25s ease;
+  }
+  .jackpot.on{opacity:1;}
+  .jackpot span{
+    font-family:var(--font-display);
+    font-size:clamp(26px,8.5vw,56px);
+    letter-spacing:.04em;
+    color:#FFCE58;
+    text-shadow:0 0 14px rgba(255,206,88,.85), 0 0 44px rgba(255,206,88,.5);
+  }
+  .jackpot em{
+    font-family:var(--font-body);
+    font-style:normal;
+    font-size:20px;
+    letter-spacing:.2em;
+    text-transform:uppercase;
+    color:var(--amber-bright);
+    text-shadow:0 1px 4px rgba(13,8,24,.9);
+  }
+  .jackpot.on span{animation:jackpotPop .5s cubic-bezier(.2,1.4,.4,1);}
+  @keyframes jackpotPop{
+    0%{transform:scale(.4); opacity:0;}
+    60%{transform:scale(1.12);}
+    100%{transform:scale(1); opacity:1;}
+  }
+
+  /* ---------- STATS ---------- */
+  .stats{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:8px;
+    margin-top:8px;
+  }
+  .stat{
+    background:var(--panel);
+    border:2px solid var(--panel-line);
+    padding:10px 6px 8px;
+    text-align:center;
+  }
+  .stat .n{
+    font-family:var(--font-body);
+    font-size:28px;
+    line-height:1;
+    color:var(--amber-bright);
+    text-shadow:0 0 8px rgba(167,139,250,.35);
+  }
+  .stat .l{
+    font-size:12px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    margin-top:2px;
+    display:block;
+  }
+
+  /* ---------- HISTORY ---------- */
+  .history-wrap{margin-top:18px;}
+  .history-label{
+    font-size:13px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    margin-bottom:8px;
+  }
+  .history{
+    display:flex;
+    gap:6px;
+    overflow-x:auto;
+    padding-bottom:6px;
+  }
+  .chip{
+    flex:0 0 auto;
+    width:26px;height:26px;
+    position:relative;
+    border:2px solid #000;
+  }
+  .chip svg{width:100%;height:100%;image-rendering:pixelated;shape-rendering:crispEdges;display:block;}
+  .chip .mark{
+    position:absolute;
+    top:-3px;right:-3px;
+    width:8px;height:8px;
+    background:var(--bad);
+    border:1px solid #000;
+  }
+  .chip.correct .mark{background:var(--good);}
+
+  /* ---------- HOW TO PLAY ---------- */
+  .howto{
+    margin-top:22px;
+    border:2px solid var(--panel-line);
+    background:var(--panel);
+    padding:16px 14px 14px;
+  }
+  .howto h2{
+    font-family:var(--font-display);
+    font-size:12px;
+    color:var(--amber-bright);
+    letter-spacing:.04em;
+    margin:0 0 16px;
+    text-shadow:0 0 8px rgba(167,139,250,.35);
+  }
+  .howto ol{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:13px;
+  }
+  .howto li{
+    display:grid;
+    grid-template-columns:24px 1fr;
+    gap:11px;
+    align-items:start;
+  }
+  .howto .num{
+    font-family:var(--font-display);
+    font-size:9px;
+    color:#160B2E;
+    background:linear-gradient(180deg,var(--amber-bright),var(--amber));
+    border:2px solid #000;
+    width:24px;
+    height:24px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .howto li > div > b{
+    display:block;
+    font-size:17px;
+    line-height:1.1;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    color:var(--text);
+    font-weight:400;
+  }
+  .howto p .h{color:var(--amber-bright);}
+  .howto p .t{color:var(--steel);}
+  .howto p{
+    margin:2px 0 0;
+    font-size:16px;
+    line-height:1.35;
+    color:var(--text-dim);
+  }
+  .howto .kbd{font-size:14px;}
+  .legend{
+    margin-top:16px;
+    padding-top:14px;
+    border-top:2px solid var(--panel-line);
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 16px;
+    font-size:15px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .legend > span{display:flex; align-items:center; gap:6px;}
+  .legend svg{
+    width:20px;height:20px;
+    border:2px solid #000;
+    image-rendering:pixelated;
+    shape-rendering:crispEdges;
+    display:block;
+  }
+  .legend .hit{color:var(--good);}
+  .legend .miss{color:var(--bad);}
+
+  .keycaps{
+    margin-top:16px;
+    padding-top:14px;
+    border-top:2px solid var(--panel-line);
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px 14px;
+  }
+  .keycaps span{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:16px;
+    letter-spacing:.04em;
+    color:var(--text-dim);
+  }
+  .keycaps b{
+    font-family:var(--font-display);
+    font-size:10px;
+    font-weight:400;
+    letter-spacing:.02em;
+    color:var(--text);
+    background:var(--panel);
+    border:2px solid var(--panel-line);
+    box-shadow:0 2px 0 var(--amber-dim);
+    padding:7px 10px;
+    white-space:nowrap;
+  }
+
+  /* ---------- STATUS BAR ---------- */
+  .statusbar{
+    margin-top:auto;
+    padding-top:18px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    font-size:13px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    flex-wrap:wrap;
+  }
+  .statusbar b{color:var(--amber-bright); font-weight:400;}
+  .kbd{
+    border:1px solid var(--panel-line);
+    padding:1px 6px;
+    color:var(--amber-bright);
+  }
+
+  @media (max-width:420px){
+    .stats{grid-template-columns:repeat(2,1fr);}
+    .statusbar{justify-content:center; text-align:center;}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .coin-art{transition:transform 60ms linear !important;}
+  }
+</style>
+
+<div id="boot" aria-hidden="true">
+  <div class="boot-logo">JUST FLIP</div>
+  <div class="boot-sub">Arcade Coin Toss</div>
+  <canvas class="boot-dino" id="dinoCanvas" width="120" height="36" aria-hidden="true"></canvas>
+  <div class="boot-bar-row">
+    <div class="boot-bar-label"><span>Loading Game</span><span id="bootPct">0%</span></div>
+    <div class="boot-blocks" id="bootBlocks"></div>
+  </div>
+  <div class="boot-status" id="bootStatus">Calibrating coin&hellip;</div>
+  <button class="boot-enter" id="bootEnter" type="button" tabindex="-1">Press Space to Enter</button>
+</div>
+
+<canvas id="bg" aria-hidden="true"></canvas>
+
+<div class="jackpot" id="jackpot" aria-hidden="true">
+  <span>JACKPOT</span>
+  <em id="jackpotSub">5 in a row</em>
+</div>
+
+<div class="start" id="startScreen">
+  <div class="start-card">
+    <p class="start-eyebrow">Player</p>
+    <div id="startGate">
+      <h2 class="start-name">Ready to play</h2>
+      <span class="start-line">Connect a wallet, or jump straight in as a guest.</span>
+      <button class="start-btn primary" id="btnWallet" type="button">Connect Wallet</button>
+      <p class="start-note" id="walletNote"></p>
+      <button class="start-btn" id="btnGuest" type="button">Play as Guest</button>
+    </div>
+    <div id="startReturning" hidden>
+      <h2 class="start-name" id="startWelcome">Welcome back</h2>
+      <span class="start-line" id="startRecord">Best 0 &middot; 0 flips</span>
+      <div class="start-actions">
+        <button class="start-btn primary" id="btnContinue" type="button">Continue</button>
+        <button class="start-btn" id="btnNewGame" type="button">New Game</button>
+      </div>
+    </div>
+    <div id="startNew" hidden>
+      <label class="start-line" for="nameInput">Enter your name</label>
+      <input class="start-input" id="nameInput" type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="PLAYER">
+      <div class="start-actions">
+        <button class="start-btn primary" id="btnStart" type="button">Start Game</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-name">JUST FLIP</div>
+    </div>
+    <div class="topbar-right">
+      <button class="icon-btn" id="muteBtn" type="button" aria-pressed="false" aria-label="Mute sound">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 9.5v5h3.5L13 18.5v-13L8.5 9.5H5z"/>
+          <path class="wave" d="M16.5 9.4a3.8 3.8 0 0 1 0 5.2"/>
+          <path class="wave" d="M19.2 6.9a7.4 7.4 0 0 1 0 10.2"/>
+          <line class="slash" x1="4.5" y1="4.5" x2="19.5" y2="19.5"/>
+        </svg>
+      </button>
+      <span class="pill status" id="statusPill"><span class="dot"></span><span id="statusText">Ready</span></span>
+    </div>
+  </div>
+
+  <div class="hero">
+    <p class="eyebrow">Two Sides &middot; One Flip</p>
+    <h1>JUST FLIP</h1>
+    <p class="sub">Pick <b>Heads</b> or <b>Tails</b>, toss the coin, and see if your call holds up.</p>
+  </div>
+
+  <div>
+    <p class="call-label">Your call</p>
+    <div class="call-row">
+      <div class="call-toggle" role="group" aria-label="Choose heads or tails">
+        <button class="call-btn heads" id="callHeads" type="button" aria-pressed="true">Heads</button>
+        <button class="call-btn tails" id="callTails" type="button" aria-pressed="false">Tails</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="stage-glow" id="stageGlow"></div>
+    <div class="coin-stage">
+      <div class="coin-shadow" aria-hidden="true"></div>
+      <div class="shock" id="shock" aria-hidden="true"></div>
+      <div class="coin" id="coin" role="button" tabindex="0" aria-label="Flip the coin">
+        <div class="coin-art" id="coinArt" aria-hidden="true">
+          <svg viewBox="0 0 16 16">
+            <rect x="5" y="0" width="6" height="1" fill="#FFCE58"/>
+            <rect x="3" y="1" width="10" height="1" fill="#FFCE58"/>
+            <rect x="2" y="2" width="12" height="1" fill="#FFCE58"/>
+            <rect x="1" y="3" width="14" height="2" fill="#F5A623"/>
+            <rect x="0" y="5" width="16" height="6" fill="#F5A623"/>
+            <rect x="1" y="11" width="14" height="2" fill="#C98419"/>
+            <rect x="2" y="13" width="12" height="1" fill="#C98419"/>
+            <rect x="3" y="14" width="10" height="1" fill="#A66A12"/>
+            <rect x="5" y="15" width="6" height="1" fill="#A66A12"/>
+            <rect x="5" y="5" width="2" height="7" fill="#2B1A02"/>
+            <rect x="10" y="5" width="2" height="7" fill="#2B1A02"/>
+            <rect x="7" y="7" width="3" height="2" fill="#2B1A02"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <button class="flip-btn" id="flipBtn" type="button">Flip &gt;</button>
+    <p class="result-line" id="resultLine" role="status" aria-live="polite">Make your call, then flip.</p>
+  </div>
+
+  <div class="stats" aria-label="Session stats">
+    <div class="stat"><span class="n" id="statTotal">0</span><span class="l">Flips</span></div>
+    <div class="stat"><span class="n" id="statCalled">0</span><span class="l">Called</span></div>
+    <div class="stat"><span class="n" id="statStreak">0</span><span class="l">Streak</span></div>
+    <div class="stat"><span class="n" id="statBest">0</span><span class="l">Best</span></div>
+  </div>
+
+  <div class="history-wrap">
+    <p class="history-label">History</p>
+    <div class="history" id="history"></div>
+  </div>
+
+  <section class="howto">
+    <h2>HOW TO PLAY</h2>
+    <ol>
+      <li>
+        <span class="num">1</span>
+        <div>
+          <b>Pick your side</b>
+          <p>Call <span class="h">Heads</span> (gold coin, marked H) or <span class="t">Tails</span> (silver coin, marked T) before the toss.</p>
+        </div>
+      </li>
+      <li>
+        <span class="num">2</span>
+        <div>
+          <b>Throw the coin</b>
+          <p>Three ways, all the same toss: press <span class="kbd">Space</span>, click the FLIP button, or click the coin itself.</p>
+        </div>
+      </li>
+      <li>
+        <span class="num">3</span>
+        <div>
+          <b>Build a streak</b>
+          <p>Every correct call adds one to your streak. A single miss knocks it back to zero.</p>
+        </div>
+      </li>
+      <li>
+        <span class="num">4</span>
+        <div>
+          <b>Hit the jackpot</b>
+          <p>Every <span class="h">5 correct calls in a row</span> pays out: coins rain down and the game holds still for the fanfare. Keep the streak alive and it pays again at 10, 15, 20&hellip;</p>
+        </div>
+      </li>
+      <li>
+        <span class="num">5</span>
+        <div>
+          <b>Beat your record</b>
+          <p>Your longest streak is kept as BEST, saved under your name on this device, so it survives a refresh.</p>
+        </div>
+      </li>
+    </ol>
+    <div class="legend">
+      <span><svg viewBox="0 0 16 16"><rect x="0" y="0" width="16" height="16" fill="#F5A623"/><rect x="4" y="4" width="2" height="8" fill="#2B1A02"/><rect x="10" y="4" width="2" height="8" fill="#2B1A02"/><rect x="6" y="7" width="4" height="2" fill="#2B1A02"/></svg> Heads</span>
+      <span><svg viewBox="0 0 16 16"><rect x="0" y="0" width="16" height="16" fill="#B9C8D4"/><rect x="3" y="4" width="10" height="2" fill="#16202A"/><rect x="7" y="6" width="2" height="6" fill="#16202A"/></svg> Tails</span>
+      <span><span class="hit">&#10003;</span> Called it</span>
+      <span><span class="miss">&#10005;</span> Missed</span>
+    </div>
+    <div class="keycaps">
+      <span><b>SPACE</b> Flip the coin</span>
+      <span><b>CLICK</b> Flip button or the coin</span>
+      <span><b>ENTER</b> Confirm on the start screen</span>
+    </div>
+  </section>
+
+  <div class="statusbar">
+    <span>&#9733; <b id="barPlayer">Player</b> &middot; 2 Sides &middot; <b id="barRecord">Best 0</b></span>
+    <span>Press <span class="kbd">Space</span> to flip</span>
+  </div>
+</div>
+
+<script>
+(function(){
+  var STORE_KEY = 'call-it-state-v2';
+  var state = {
+    total:0, called:0, streak:0, best:0,
+    history:[], muted:false, call:'heads', name:'', wallet:''
+  };
+  try{
+    var saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+    if(saved && typeof saved === 'object') state = Object.assign(state, saved);
+  }catch(e){}
+
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var boot = document.getElementById('boot');
+  var bootBlocks = document.getElementById('bootBlocks');
+  var bootPct = document.getElementById('bootPct');
+  var bootStatus = document.getElementById('bootStatus');
+  var bootEnter = document.getElementById('bootEnter');
+  var bootReady = false;
+
+  var coin = document.getElementById('coin');
+  var flipBtn = document.getElementById('flipBtn');
+  var resultLine = document.getElementById('resultLine');
+  var stageGlow = document.getElementById('stageGlow');
+  var historyEl = document.getElementById('history');
+  var muteBtn = document.getElementById('muteBtn');
+  var statusText = document.getElementById('statusText');
+  var statusPill = document.getElementById('statusPill');
+  var callHeads = document.getElementById('callHeads');
+  var callTails = document.getElementById('callTails');
+  var barRecord = document.getElementById('barRecord');
+
+  var elTotal = document.getElementById('statTotal');
+  var elCalled = document.getElementById('statCalled');
+  var elStreak = document.getElementById('statStreak');
+  var elBest = document.getElementById('statBest');
+
+  var coinArt = document.getElementById('coinArt');
+  var ART = {
+    heads: '<svg viewBox="0 0 16 16"><rect x="5" y="0" width="6" height="1" fill="#FFCE58"/><rect x="3" y="1" width="10" height="1" fill="#FFCE58"/><rect x="2" y="2" width="12" height="1" fill="#FFCE58"/><rect x="1" y="3" width="14" height="2" fill="#F5A623"/><rect x="0" y="5" width="16" height="6" fill="#F5A623"/><rect x="1" y="11" width="14" height="2" fill="#C98419"/><rect x="2" y="13" width="12" height="1" fill="#C98419"/><rect x="3" y="14" width="10" height="1" fill="#A66A12"/><rect x="5" y="15" width="6" height="1" fill="#A66A12"/><rect x="5" y="5" width="2" height="7" fill="#2B1A02"/><rect x="10" y="5" width="2" height="7" fill="#2B1A02"/><rect x="7" y="7" width="3" height="2" fill="#2B1A02"/></svg>',
+    tails: '<svg viewBox="0 0 16 16"><rect x="5" y="0" width="6" height="1" fill="#EEF4F8"/><rect x="3" y="1" width="10" height="1" fill="#EEF4F8"/><rect x="2" y="2" width="12" height="1" fill="#EEF4F8"/><rect x="1" y="3" width="14" height="2" fill="#B9C8D4"/><rect x="0" y="5" width="16" height="6" fill="#B9C8D4"/><rect x="1" y="11" width="14" height="2" fill="#8497A6"/><rect x="2" y="13" width="12" height="1" fill="#8497A6"/><rect x="3" y="14" width="10" height="1" fill="#6A7C8A"/><rect x="5" y="15" width="6" height="1" fill="#6A7C8A"/><rect x="4" y="5" width="8" height="2" fill="#16202A"/><rect x="7" y="7" width="2" height="5" fill="#16202A"/></svg>'
+  };
+  var isTails = false;
+  var spinning = false;
+  var celebrating = false;
+  var audioCtx = null;
+
+  /* ---- boot sequence ---- */
+  var BOOT_BLOCKS = 20;
+  for(var i=0;i<BOOT_BLOCKS;i++){
+    var b = document.createElement('i');
+    bootBlocks.appendChild(b);
+  }
+  /* Chrome-offline style runner for the loading screen. Driven by setInterval, not
+     requestAnimationFrame: rAF stops dead while a tab is hidden, and the chunky
+     fixed step suits pixel art anyway. */
+  var dino = (function(){
+    var cv = document.getElementById('dinoCanvas');
+    if(!cv) return { start: function(){}, stop: function(){} };
+    var g = cv.getContext('2d');
+    var W = 120, H = 36, GROUND = 30, OX = 14;
+    var timer = null, t = 0, frame = 0, groundOff = 0;
+    var cacti = [], jumpY = 0, jumpV = 0, jumping = false, coinPhase = 0, faces = null;
+
+    var BODY = [
+      [0,8,4,2],[2,10,4,2],
+      [5,10,11,6],
+      [13,6,4,5],
+      [15,2,7,3],[14,5,8,3],[16,8,5,1],
+      [15,12,3,1],[17,13,1,1]
+    ];
+    var LEG_A = [[7,16,3,3],[12,16,3,6],[12,21,4,1]];
+    var LEG_B = [[7,16,3,6],[6,21,4,1],[12,16,3,3]];
+    // the coin the dino is chasing. Its pixels live here rather than borrowing the
+    // game's ART, because this engine runs before ART exists - borrowing would make
+    // the coin silently vanish the day that ordering shifts.
+    var COIN_ROWS = [
+      [4,0,4,1,0],[2,1,8,1,0],[1,2,10,1,0],
+      [0,3,12,6,1],
+      [1,9,10,1,2],[2,10,8,1,2],[4,11,4,1,2]
+    ];
+    var COIN_H = [[3,3,2,6],[7,3,2,6],[5,5,2,2]];
+    var COIN_T = [[2,3,8,2],[5,5,2,4]];
+    var CACTUS = [[2,0,2,12],[0,4,2,3],[4,3,2,4]];
+
+    function buildFace(cols, glyph, ink){
+      var c = document.createElement('canvas');
+      c.width = 12; c.height = 12;
+      var x = c.getContext('2d');
+      var i, r;
+      for(i = 0; i < COIN_ROWS.length; i++){
+        r = COIN_ROWS[i];
+        x.fillStyle = cols[r[4]];
+        x.fillRect(r[0], r[1], r[2], r[3]);
+      }
+      x.fillStyle = ink;
+      for(i = 0; i < glyph.length; i++){
+        r = glyph[i];
+        x.fillRect(r[0], r[1], r[2], r[3]);
+      }
+      return c;
+    }
+
+    function px(rects, ox, oy, color){
+      g.fillStyle = color;
+      for(var i = 0; i < rects.length; i++){
+        var r = rects[i];
+        g.fillRect(ox + r[0], oy + r[1], r[2], r[3]);
+      }
+    }
+
+    function draw(){
+      g.clearRect(0, 0, W, H);
+
+      g.fillStyle = 'rgba(167,139,250,.5)';
+      g.fillRect(0, GROUND, W, 1);
+      g.fillStyle = 'rgba(167,139,250,.3)';
+      for(var i = 0; i < 7; i++){
+        var gx = ((i * 19) - groundOff) % (W + 12);
+        if(gx < 0) gx += W + 12;
+        g.fillRect(gx, GROUND + 3, 3, 1);
+      }
+
+      for(i = 0; i < cacti.length; i++) px(CACTUS, Math.round(cacti[i]), GROUND - 12, '#A78BFA');
+
+      // the coin bobs and flips just out of reach, drifting away when nearly caught
+      var cx = 74 + Math.sin(coinPhase * 0.42) * 9;
+      var cy = GROUND - 21 + Math.sin(coinPhase) * 4;
+      var spin = coinPhase * 0.9;
+      var cw = Math.max(1, Math.round(12 * Math.abs(Math.cos(spin))));
+      g.fillStyle = 'rgba(216,180,254,.35)';
+      g.fillRect(Math.round(cx + 8), Math.round(cy + 5), 2, 1);
+      g.fillRect(Math.round(cx + 13), Math.round(cy + 3), 1, 1);
+      if(faces){
+        g.imageSmoothingEnabled = false;
+        g.drawImage(faces[Math.floor(spin / Math.PI) % 2 ? 1 : 0],
+          Math.round(cx - cw / 2), Math.round(cy), cw, 12);
+      }
+
+      var dy = GROUND - 24 - Math.round(jumpY);
+      px(BODY, OX, dy, '#D8B4FE');
+      px(jumping ? LEG_A : (frame ? LEG_B : LEG_A), OX, dy, '#D8B4FE');
+      g.fillStyle = '#0D0818';
+      g.fillRect(OX + 19, dy + 4, 1, 1);
+    }
+
+    function tick(){
+      t++;
+      groundOff += 2;
+      if(t % 3 === 0) frame ^= 1;
+
+      coinPhase += 0.16;
+
+      for(var i = cacti.length - 1; i >= 0; i--){
+        cacti[i] -= 2;
+        if(cacti[i] < -8) cacti.splice(i, 1);
+      }
+      if(t % 46 === 0) cacti.push(W + 4);
+
+      // fire while the cactus is still ahead, not on top of the dino: the jump peaks
+      // about 7 ticks out and the cactus closes 2px a tick, so ~36-48 lands it clear
+      if(!jumping){
+        for(i = 0; i < cacti.length; i++){
+          if(cacti[i] > 36 && cacti[i] < 48){ jumping = true; jumpV = 3.1; break; }
+        }
+      }
+      if(jumping){
+        jumpY += jumpV;
+        jumpV -= 0.42;
+        if(jumpY <= 0){ jumpY = 0; jumping = false; }
+      }
+      draw();
+    }
+
+    return {
+      start: function(){
+        if(!faces){
+          faces = [
+            buildFace(['#FFCE58', '#F5A623', '#C98419'], COIN_H, '#2B1A02'),
+            buildFace(['#EEF4F8', '#B9C8D4', '#8497A6'], COIN_T, '#16202A')
+          ];
+        }
+        draw();
+        if(timer) return;
+        timer = setInterval(tick, reduced ? 90 : 55);
+      },
+      stop: function(){
+        if(timer){ clearInterval(timer); timer = null; }
+      }
+    };
+  })();
+
+  // plain ASCII dots: a mis-decoded ellipsis turns these into "coin...' garbage
+  var bootMsgs = ['Calibrating coin...','Reading the odds...','Polishing edges...','Just Flip is ready for you.'];
+  function enterGame(){
+    if(!bootReady) return;
+    boot.classList.add('hide');
+    dino.stop();
+    showStart();
+  }
+
+  var startScreen = document.getElementById('startScreen');
+  var startReturning = document.getElementById('startReturning');
+  var startNew = document.getElementById('startNew');
+  var nameInput = document.getElementById('nameInput');
+
+  var startGate = document.getElementById('startGate');
+
+  // the wallet is the door: nothing past this point renders until it opens
+  function showStart(){
+    startGate.hidden = false;
+    startReturning.hidden = true;
+    startNew.hidden = true;
+    startScreen.classList.add('on');
+
+    // A gate nobody can pass is just a locked door. Where a wallet is genuinely
+    // reachable the gate holds; on a sandboxed page, where the browser cannot
+    // expose one at all, let people in as guests instead of stranding them.
+    // guest is always on offer: hiding it locked out anyone who had a wallet
+    // installed but did not want to use it
+    var guest = document.getElementById('btnGuest');
+    guest.hidden = false;
+    document.getElementById('walletNote').textContent = window.ethereum
+      ? ''
+      : 'No wallet detected in this browser. Install MetaMask to connect, or just play as a guest.';
+
+    setTimeout(function(){
+      (window.ethereum ? document.getElementById('btnWallet') : guest).focus();
+    }, 380);
+  }
+
+  function afterConnect(){
+    startGate.hidden = true;
+    var returning = state.name && state.total > 0;
+    startReturning.hidden = !returning;
+    startNew.hidden = !!returning;
+    if(returning){
+      document.getElementById('startWelcome').textContent = 'Welcome back, ' + state.name;
+      document.getElementById('startRecord').innerHTML =
+        'Best ' + state.best + ' &middot; ' + state.total + ' flips';
+      document.getElementById('btnContinue').focus();
+    }else{
+      nameInput.value = state.wallet ? shortAddr(state.wallet) : '';
+      nameInput.focus();
+    }
+  }
+
+  function beginPlay(){
+    startScreen.classList.remove('on');
+    document.body.classList.add('in-game');
+    // the start screen is only faded out, not removed - leaving focus inside it
+    // means the player's next Enter lands on a control that wipes their progress
+    if(startScreen.contains(document.activeElement)) document.activeElement.blur();
+    flipBtn.focus();
+    renderStats();
+    renderHistory();
+    music.start();
+  }
+
+  function startFresh(){
+    // 16, not 12: a shortened address is 13 characters and must survive intact
+    state.name = (nameInput.value || 'Player').trim().slice(0, 16) || 'Player';
+    state.total = 0;
+    state.called = 0;
+    state.streak = 0;
+    state.best = 0;
+    state.history = [];
+    persist();
+    resultLine.className = 'result-line';
+    resultLine.textContent = 'Make your call, then flip.';
+    beginPlay();
+  }
+  function runBoot(){
+    dino.start();
+    var blocks = bootBlocks.children;
+    var step = 0;
+    var timer = setInterval(function(){
+      step++;
+      var filled = Math.round((step/BOOT_BLOCKS)*BOOT_BLOCKS);
+      for(var i=0;i<blocks.length;i++){
+        blocks[i].classList.toggle('lit', i < filled);
+      }
+      bootPct.textContent = Math.min(100, Math.round((step/BOOT_BLOCKS)*100)) + '%';
+      var msgIdx = Math.min(bootMsgs.length-1, Math.floor((step/BOOT_BLOCKS)*bootMsgs.length));
+      bootStatus.textContent = bootMsgs[msgIdx];
+      if(step >= BOOT_BLOCKS){
+        clearInterval(timer);
+        bootReady = true;
+        boot.classList.add('ready');
+      }
+    }, 120);
+  }
+  runBoot();
+
+  function persist(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){} }
+
+  function renderStats(){
+    elTotal.textContent = state.total;
+    elCalled.textContent = state.called;
+    elStreak.textContent = state.streak;
+    elBest.textContent = state.best;
+    barRecord.textContent = 'Best ' + state.best;
+    document.getElementById('barPlayer').textContent = state.name || 'Player';
+  }
+
+  function renderHistory(){
+    historyEl.innerHTML = '';
+    state.history.slice(-16).forEach(function(entry){
+      var chip = document.createElement('div');
+      chip.className = 'chip' + (entry.hit ? ' correct' : '');
+      chip.innerHTML = entry.side === 'heads'
+        ? '<svg viewBox="0 0 16 16"><rect x="0" y="0" width="16" height="16" fill="#F5A623"/><rect x="4" y="4" width="2" height="8" fill="#2B1A02"/><rect x="10" y="4" width="2" height="8" fill="#2B1A02"/><rect x="6" y="7" width="4" height="2" fill="#2B1A02"/></svg>'
+        : '<svg viewBox="0 0 16 16"><rect x="0" y="0" width="16" height="16" fill="#B9C8D4"/><rect x="3" y="4" width="10" height="2" fill="#16202A"/><rect x="7" y="6" width="2" height="6" fill="#16202A"/></svg>';
+      chip.innerHTML += '<span class="mark"></span>';
+      historyEl.appendChild(chip);
+    });
+    historyEl.scrollLeft = historyEl.scrollWidth;
+  }
+
+  function renderMute(){
+    muteBtn.setAttribute('aria-pressed', state.muted ? 'true' : 'false');
+    muteBtn.setAttribute('aria-label', state.muted ? 'Unmute sound' : 'Mute sound');
+  }
+
+  function renderCall(){
+    callHeads.setAttribute('aria-pressed', state.call === 'heads' ? 'true' : 'false');
+    callTails.setAttribute('aria-pressed', state.call === 'tails' ? 'true' : 'false');
+  }
+
+  function setStatus(text, busy){
+    statusText.textContent = text;
+    statusPill.classList.toggle('busy', !!busy);
+  }
+
+  function getCtx(){
+    if(!audioCtx){
+      try{
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }catch(e){ return null; }
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  var noiseBuf = null;
+  function getNoise(ctx){
+    if(!noiseBuf){
+      noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.15), ctx.sampleRate);
+      var d = noiseBuf.getChannelData(0);
+      for(var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    return noiseBuf;
+  }
+
+  /* A real coin rings on inharmonic partials - ratios that aren't whole multiples -
+     which is exactly what makes metal sound like metal instead of a game blip. */
+  function coinTing(delay, level, bright){
+    if(state.muted) return;
+    var ctx = getCtx();
+    if(!ctx) return;
+    try{
+      var t0 = ctx.currentTime + delay;
+      var base = bright ? 2050 : 1660;
+      var ring = bright ? 0.38 : 0.62;
+      var out = ctx.createGain();
+      out.gain.value = level;
+      out.connect(ctx.destination);
+
+      [1, 1.51, 2.14, 2.82, 3.63].forEach(function(mult, i){
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(base * mult, t0);
+        osc.frequency.exponentialRampToValueAtTime(base * mult * 0.985, t0 + ring);
+        gain.gain.setValueAtTime(0.0001, t0);
+        gain.gain.exponentialRampToValueAtTime(0.5 / (i + 1.4), t0 + 0.004);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + ring + i * 0.04);
+        osc.connect(gain);
+        gain.connect(out);
+        osc.start(t0);
+        osc.stop(t0 + ring + 0.3);
+      });
+
+      // short filtered noise burst = the strike itself, before the ring takes over
+      var src = ctx.createBufferSource();
+      var hp = ctx.createBiquadFilter();
+      var ng = ctx.createGain();
+      src.buffer = getNoise(ctx);
+      hp.type = 'highpass';
+      hp.frequency.value = 3600;
+      ng.gain.setValueAtTime(0.3, t0);
+      ng.gain.exponentialRampToValueAtTime(0.0005, t0 + 0.05);
+      src.connect(hp); hp.connect(ng); ng.connect(out);
+      src.start(t0);
+      src.stop(t0 + 0.08);
+    }catch(e){}
+  }
+
+  function metalPing(delay, level, base, ring){
+    if(state.muted) return;
+    var ctx = getCtx();
+    if(!ctx) return;
+    try{
+      var t0 = ctx.currentTime + delay;
+      var out = ctx.createGain();
+      out.gain.value = level;
+      out.connect(ctx.destination);
+      [1, 1.51, 2.14, 2.82].forEach(function(mult, i){
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(base * mult, t0);
+        gain.gain.setValueAtTime(0.0001, t0);
+        gain.gain.exponentialRampToValueAtTime(0.5 / (i + 1.4), t0 + 0.004);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + ring + i * 0.03);
+        osc.connect(gain);
+        gain.connect(out);
+        osc.start(t0);
+        osc.stop(t0 + ring + 0.25);
+      });
+    }catch(e){}
+  }
+
+  /* Melody uses harmonic partials - whole-number multiples - so the pitch reads
+     clearly. The coin's inharmonic ring is great for a clink but turns to mush the
+     moment you try to play a tune on it. */
+  function chime(delay, level, freq, dur){
+    if(state.muted) return;
+    var ctx = getCtx();
+    if(!ctx) return;
+    try{
+      var t0 = ctx.currentTime + delay;
+      var out = ctx.createGain();
+      out.gain.value = level;
+      out.connect(ctx.destination);
+      [1, 2, 3, 4.2].forEach(function(mult, i){
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = i === 0 ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(freq * mult, t0);
+        gain.gain.setValueAtTime(0.0001, t0);
+        gain.gain.exponentialRampToValueAtTime(0.55 / (i + 1.3), t0 + 0.008);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        osc.connect(gain);
+        gain.connect(out);
+        osc.start(t0);
+        osc.stop(t0 + dur + 0.15);
+      });
+    }catch(e){}
+  }
+
+  function bassHit(delay, level, freq, dur){
+    if(state.muted) return;
+    var ctx = getCtx();
+    if(!ctx) return;
+    try{
+      var t0 = ctx.currentTime + delay;
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq * 1.5, t0);
+      osc.frequency.exponentialRampToValueAtTime(freq, t0 + 0.12);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(level, t0 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.2);
+    }catch(e){}
+  }
+
+  /* A four second payout: impact, two climbing phrases, a wide final chord, and coins
+     pouring the whole way through - dense at first, thinning as they settle. */
+  function jackpotSound(){
+    var C = 523.25;
+    var D = C * Math.pow(2, 2 / 12);
+    var f = function(semi, base){ return (base || C) * Math.pow(2, semi / 12); };
+    var i, k;
+
+    // riser: anticipation before the hit lands
+    for(i = 0; i < 10; i++) metalPing(i * 0.032, 0.06 + i * 0.008, 900 * Math.pow(2, i / 9), 0.18);
+
+    bassHit(0.32, 0.55, C / 4, 1.6);
+    [0, 7, 12].forEach(function(s){ chime(0.32, 0.24, f(s), 1.2); });
+
+    var p1 = [[0.35,12,0.28],[0.47,12,0.28],[0.59,12,0.28],[0.72,16,0.50],[0.90,19,0.50],[1.08,24,0.90]];
+    for(i = 0; i < p1.length; i++) chime(p1[i][0], 0.32, f(p1[i][1]), p1[i][2]);
+
+    var p2 = [[1.35,19,0.30],[1.50,21,0.30],[1.65,23,0.35],[1.82,24,1.00]];
+    for(i = 0; i < p2.length; i++) chime(p2[i][0], 0.33, f(p2[i][1]), p2[i][2]);
+
+    // IV - V - vi - I, the lift that pop music leans on
+    var prog = [[2.15,[5,9,12]],[2.50,[7,11,14]],[2.85,[9,12,16]],[3.20,[12,16,19]]];
+    for(i = 0; i < prog.length; i++){
+      bassHit(prog[i][0], 0.3, f(prog[i][1][0] - 24), 0.7);
+      for(k = 0; k < prog[i][1].length; k++) chime(prog[i][0], 0.19, f(prog[i][1][k]), 0.6);
+    }
+
+    // the hook: same shape restated a whole step higher
+    var p3 = [[3.55,12,0.30],[3.70,16,0.30],[3.85,19,0.35],[4.02,24,1.40]];
+    for(i = 0; i < p3.length; i++) chime(p3[i][0], 0.36, f(p3[i][1], D), p3[i][2]);
+
+    bassHit(4.35, 0.5, D / 4, 2.2);
+    [0,4,7,12,16,19,24,28].forEach(function(s, j){ chime(4.35 + j * 0.02, 0.21, f(s, D), 2.3); });
+
+    for(i = 0; i < 44; i++){
+      metalPing(0.4 + Math.random() * 4.2, 0.08 + Math.random() * 0.09, 1300 + Math.random() * 2600, 0.26);
+    }
+    for(i = 0; i < 16; i++){
+      metalPing(4.45 + i * 0.05, 0.12, 1800 * Math.pow(2, i / 16), 0.32);
+    }
+  }
+
+  /* E minor funk, 108bpm. An 8-bar cycle that stacks a new layer every 2 bars
+     so a long session never hears the same 2-second loop over and over. */
+  var music = (function(){
+    var BPM = 108;
+    var STEP = 60 / BPM / 4;
+    var LEN = 8 * 16;
+    var VOL = 0.15;
+
+    var timer = null, stepIdx = 0, nextTime = 0, master = null, noise = null;
+
+    function mtof(m){ return 440 * Math.pow(2, (m - 69) / 12); }
+
+    var BASS = [
+      [40, null, null, 40, null, 43, null, null, 40, null, 38, null, 40, null, 43, null],
+      [40, null, 45, null, null, 43, null, 40, null, null, 38, null, 43, null, 40, null]
+    ];
+    var KICK = [0, 6, 10];
+    var SNARE = [4, 12];
+    var CHORDS = [[52, 55, 59], [45, 52, 57], [48, 52, 55], [47, 51, 54]];
+    var PENT = [64, 67, 69, 71, 74, 76];
+
+    function kick(ctx, t){
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(115, t);
+      o.frequency.exponentialRampToValueAtTime(40, t + 0.08);
+      g.gain.setValueAtTime(0.85, t);
+      g.gain.exponentialRampToValueAtTime(0.0005, t + 0.2);
+      o.connect(g); g.connect(master);
+      o.start(t); o.stop(t + 0.22);
+    }
+
+    function snare(ctx, t){
+      var s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = noise;
+      f.type = 'bandpass'; f.frequency.value = 1900; f.Q.value = 0.8;
+      g.gain.setValueAtTime(0.4, t);
+      g.gain.exponentialRampToValueAtTime(0.0005, t + 0.15);
+      s.connect(f); f.connect(g); g.connect(master);
+      s.start(t); s.stop(t + 0.18);
+    }
+
+    function hat(ctx, t, open){
+      var s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      var d = open ? 0.13 : 0.035;
+      s.buffer = noise;
+      f.type = 'highpass'; f.frequency.value = 7200;
+      g.gain.setValueAtTime(0.15, t);
+      g.gain.exponentialRampToValueAtTime(0.0005, t + d);
+      s.connect(f); f.connect(g); g.connect(master);
+      s.start(t); s.stop(t + d + 0.02);
+    }
+
+    function bass(ctx, t, m){
+      var o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.value = mtof(m);
+      f.type = 'lowpass'; f.Q.value = 7;
+      f.frequency.setValueAtTime(1100, t);
+      f.frequency.exponentialRampToValueAtTime(240, t + 0.16);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.5, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+      o.connect(f); f.connect(g); g.connect(master);
+      o.start(t); o.stop(t + 0.24);
+    }
+
+    function stab(ctx, t, chord){
+      var f = ctx.createBiquadFilter(), g = ctx.createGain();
+      f.type = 'lowpass';
+      f.frequency.setValueAtTime(2600, t);
+      f.frequency.exponentialRampToValueAtTime(900, t + 0.14);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.1, t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0005, t + 0.16);
+      f.connect(g); g.connect(master);
+      chord.forEach(function(m){
+        var o = ctx.createOscillator();
+        o.type = 'square'; o.frequency.value = mtof(m);
+        o.connect(f); o.start(t); o.stop(t + 0.18);
+      });
+    }
+
+    function lead(ctx, t, m){
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'triangle'; o.frequency.value = mtof(m);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.09, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0005, t + 0.16);
+      o.connect(g); g.connect(master);
+      o.start(t); o.stop(t + 0.18);
+    }
+
+    function playStep(ctx, i, t){
+      var bar = Math.floor(i / 16);
+      var s = i % 16;
+      var layer = Math.floor(bar / 2);
+
+      var b = BASS[layer % 2][s];
+      if(b) bass(ctx, t, b);
+      if(s % 2 === 0 || layer >= 2) hat(ctx, t, s === 14 && layer >= 2);
+      if(layer >= 1){
+        if(KICK.indexOf(s) > -1) kick(ctx, t);
+        if(SNARE.indexOf(s) > -1) snare(ctx, t);
+      }
+      if(layer >= 2 && (s === 2 || s === 7 || s === 14)) stab(ctx, t, CHORDS[bar % 4]);
+      if(layer >= 3 && s % 2 === 1) lead(ctx, t, PENT[(i * 3) % PENT.length]);
+    }
+
+    function tick(){
+      if(!audioCtx || !master) return;
+      while(nextTime < audioCtx.currentTime + 0.14){
+        playStep(audioCtx, stepIdx, nextTime);
+        nextTime += STEP;
+        stepIdx = (stepIdx + 1) % LEN;
+      }
+    }
+
+    return {
+      start: function(){
+        if(state.muted) return;
+        var ctx = getCtx();
+        if(!ctx) return;
+        if(!master){
+          master = ctx.createGain();
+          master.gain.value = 0;
+          master.connect(ctx.destination);
+          var buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.3), ctx.sampleRate);
+          var d = buf.getChannelData(0);
+          for(var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+          noise = buf;
+        }
+        master.gain.setTargetAtTime(VOL, ctx.currentTime, 0.25);
+        if(!timer){
+          nextTime = ctx.currentTime + 0.1;
+          timer = setInterval(tick, 25);
+        }
+      },
+      // pull the funk down so the fanfare has the stage, then bring it back
+      duck: function(seconds){
+        if(!master || !audioCtx || state.muted) return;
+        var t = audioCtx.currentTime;
+        master.gain.cancelScheduledValues(t);
+        master.gain.setTargetAtTime(0.015, t, 0.1);
+        master.gain.setTargetAtTime(VOL, t + seconds, 0.4);
+      },
+      setMuted: function(m){
+        if(m){
+          if(timer){ clearInterval(timer); timer = null; }
+          if(master && audioCtx) master.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+        }else{
+          this.start();
+        }
+      }
+    };
+  })();
+
+  /* Coins drifting behind the game. They warm up as the streak grows and the room
+     flashes gold on a correct call, so the backdrop reacts to how well you're doing. */
+  var bg = (function(){
+    var cv = document.getElementById('bg');
+    var g = cv.getContext('2d');
+    var tiles = null, parts = [], blobs = [], W = 0, H = 0, last = 0, flash = 0;
+    // reduce-motion softens the drift instead of freezing it - a still backdrop
+    // reads as broken, which is what shipping it stopped-dead looked like
+    var CALM = reduced ? 0.35 : 1;
+
+    function tileFrom(svg){
+      var c = document.createElement('canvas');
+      c.width = 16; c.height = 16;
+      var x = c.getContext('2d');
+      var re = /<rect x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)" fill="([^"]+)"/g;
+      var m;
+      while((m = re.exec(svg))){
+        x.fillStyle = m[5];
+        x.fillRect(+m[1], +m[2], +m[3], +m[4]);
+      }
+      return c;
+    }
+
+    function viewport(){
+      return [
+        window.innerWidth || document.documentElement.clientWidth || 0,
+        window.innerHeight || document.documentElement.clientHeight || 0
+      ];
+    }
+
+    function resize(){
+      var v = viewport();
+      W = cv.width = Math.max(1, v[0]);
+      H = cv.height = Math.max(1, v[1]);
+    }
+
+    function spawn(seeded){
+      var depth = Math.random();
+      return {
+        x: Math.random() * W,
+        y: seeded ? Math.random() * H : H + 60,
+        size: 14 + depth * 40,
+        speed: 6 + depth * 32,
+        phase: Math.random() * Math.PI * 2,
+        spin: 0.3 + Math.random() * 0.9,
+        alpha: 0.28 + depth * 0.38
+      };
+    }
+
+    var GLOW = ['167,139,250', '216,180,254', '139,92,246', '196,151,255'];
+
+    function spawnBlob(){
+      return {
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: 140 + Math.random() * 200,
+        vx: (Math.random() - 0.5) * 18,
+        vy: -(8 + Math.random() * 18),
+        a: 0.30 + Math.random() * 0.18,
+        c: GLOW[Math.floor(Math.random() * GLOW.length)]
+      };
+    }
+
+    function draw(dt){
+      // self-heal the size every frame: if the layout wasn't ready when we started,
+      // the canvas is 1px wide and the whole backdrop would stay blank forever
+      var v = viewport();
+      if(v[0] && v[1] && (v[0] !== W || v[1] !== H)) resize();
+
+      g.clearRect(0, 0, W, H);
+      var warm = 1 + Math.min(state.streak, 8) * 0.11;
+      var i, p, w, side, bl, gr;
+
+      // lift the field off pure black first - additive glow on a 96% black ground
+      // just vanishes, which is why earlier passes read as "no background at all"
+      var base = g.createRadialGradient(W * 0.5, H * 0.45, 0, W * 0.5, H * 0.45, Math.max(W, H) * 0.78);
+      base.addColorStop(0, 'rgba(72,42,132,' + (0.55 * warm).toFixed(3) + ')');
+      base.addColorStop(0.6, 'rgba(40,23,76,0.42)');
+      base.addColorStop(1, 'rgba(16,9,30,0.22)');
+      g.fillStyle = base;
+      g.fillRect(0, 0, W, H);
+
+      // additive light pools: where they overlap the colour genuinely brightens
+      // instead of muddying, which is what makes this read as glow and not haze
+      g.globalCompositeOperation = 'lighter';
+      for(i = 0; i < blobs.length; i++){
+        bl = blobs[i];
+        bl.x += bl.vx * dt * CALM;
+        bl.y += bl.vy * dt * CALM;
+        if(bl.y < -bl.r){ bl.y = H + bl.r; bl.x = Math.random() * W; }
+        gr = g.createRadialGradient(bl.x, bl.y, 0, bl.x, bl.y, bl.r);
+        gr.addColorStop(0, 'rgba(' + bl.c + ',' + (bl.a * warm).toFixed(3) + ')');
+        gr.addColorStop(0.55, 'rgba(' + bl.c + ',' + (bl.a * warm * 0.35).toFixed(3) + ')');
+        gr.addColorStop(1, 'rgba(' + bl.c + ',0)');
+        g.fillStyle = gr;
+        g.fillRect(bl.x - bl.r, bl.y - bl.r, bl.r * 2, bl.r * 2);
+      }
+      g.globalCompositeOperation = 'source-over';
+
+      // coins drifting at different depths, near ones bigger and faster
+      g.imageSmoothingEnabled = false;
+      for(i = 0; i < parts.length; i++){
+        p = parts[i];
+        p.y -= p.speed * dt * CALM;
+        p.phase += p.spin * dt * CALM;
+        if(p.y < -60){
+          // burst coins are temporary: recycling them would leave the backdrop
+          // permanently denser after every jackpot
+          if(p.temp){ parts.splice(i, 1); i--; continue; }
+          parts[i] = spawn(false);
+          continue;
+        }
+        w = Math.max(1, p.size * Math.abs(Math.cos(p.phase)));
+        side = Math.floor(p.phase / Math.PI) % 2 ? 1 : 0;
+        g.globalAlpha = Math.min(0.8, p.alpha * warm);
+        g.drawImage(tiles[side], p.x - w / 2, p.y - p.size / 2, w, p.size);
+      }
+      g.globalAlpha = 1;
+
+      // the win flash lands on top of everything so it actually registers
+      if(flash > 0.01){
+        var grd = g.createRadialGradient(W / 2, H * 0.42, 0, W / 2, H * 0.42, Math.max(W, H) * 0.55);
+        grd.addColorStop(0, 'rgba(255,206,88,' + (0.20 * flash).toFixed(3) + ')');
+        grd.addColorStop(1, 'rgba(255,206,88,0)');
+        g.fillStyle = grd;
+        g.fillRect(0, 0, W, H);
+      }
+    }
+
+    function loop(ts){
+      var dt = Math.min(0.05, (ts - last) / 1000 || 0.016);
+      last = ts;
+      flash *= 0.94;
+      draw(dt);
+      requestAnimationFrame(loop);
+    }
+
+    return {
+      start: function(){
+        tiles = [tileFrom(ART.heads), tileFrom(ART.tails)];
+        resize();
+        parts = [];
+        for(var i = 0; i < 40; i++) parts.push(spawn(true));
+        blobs = [];
+        for(i = 0; i < 13; i++) blobs.push(spawnBlob());
+        window.addEventListener('resize', resize);
+        draw(0);
+        last = performance.now();
+        requestAnimationFrame(loop);
+      },
+      hit: function(won){ if(won) flash = reduced ? 0.5 : 1; },
+      burst: function(){
+        flash = 1;
+        if(parts.length > 72) return;
+        for(var i = 0; i < 18; i++){
+          var p = spawn(false);
+          p.temp = true;
+          p.y = H * (0.5 + Math.random() * 0.45);
+          p.x = W * (0.2 + Math.random() * 0.6);
+          p.speed = 70 + Math.random() * 110;
+          p.size = 16 + Math.random() * 30;
+          p.alpha = 0.35 + Math.random() * 0.3;
+          parts.push(p);
+        }
+      }
+    };
+  })();
+  bg.start();
+
+  var jackpotEl = document.getElementById('jackpot');
+  var jackpotSub = document.getElementById('jackpotSub');
+  var jackpotTimer = null;
+
+  function jackpot(n){
+    jackpotSub.textContent = n + ' in a row';
+    // restart the pop animation even if a previous jackpot is still on screen
+    jackpotEl.classList.remove('on');
+    void jackpotEl.offsetWidth;
+    jackpotEl.classList.add('on');
+    if(jackpotTimer) clearTimeout(jackpotTimer);
+    celebrating = true;
+    flipBtn.disabled = true;
+    setStatus('Jackpot', true);
+
+    jackpotTimer = setTimeout(function(){
+      jackpotEl.classList.remove('on');
+      celebrating = false;
+      flipBtn.disabled = false;
+      setStatus('Ready', false);
+    }, 6500);
+
+    bg.burst();
+    [900, 1900, 3200, 4400].forEach(function(ms){ setTimeout(function(){ bg.burst(); }, ms); });
+    music.duck(6.2);
+    jackpotSound();
+  }
+
+  function flip(){
+    if(spinning || celebrating) return;
+    spinning = true;
+    music.start();
+    flipBtn.disabled = true;
+    setStatus('Flipping', true);
+    resultLine.className = 'result-line';
+    resultLine.textContent = 'Flipping...';
+    stageGlow.classList.remove('on');
+
+    var result = Math.random() < 0.5 ? 'heads' : 'tails';
+    var duration = reduced ? 240 : 900;
+    var ticks = reduced ? 2 : 10;
+    var tickMs = duration / ticks;
+    var shown = isTails;
+    var tick = 0;
+
+    coinArt.style.transitionDuration = tickMs + 'ms';
+    var shadow = document.querySelector('.coin-shadow');
+
+    // parabola: 0 at launch and landing, 1 at the peak. The coin also grows slightly
+    // at the top and its shadow shrinks away, which is what sells the height.
+    var apply = function(k, squash){
+      var p = Math.min(1, k / ticks);
+      var h = 4 * p * (1 - p);
+      coinArt.style.transform =
+        'translateY(' + (-58 * h).toFixed(1) + 'px) scale(' + (1 + 0.12 * h).toFixed(3) + ') scaleX(' + squash + ')';
+      if(shadow){
+        shadow.style.transitionDuration = tickMs + 'ms';
+        shadow.style.transform = 'translateY(14px) scale(' + (1 - 0.4 * h).toFixed(3) + ')';
+        shadow.style.opacity = (1 - 0.55 * h).toFixed(3);
+      }
+    };
+
+    var spinTimer = setInterval(function(){
+      tick++;
+      if(tick % 2 === 1){
+        apply(tick, 0.08);
+      }else{
+        shown = !shown;
+        coinArt.innerHTML = shown ? ART.tails : ART.heads;
+        apply(tick, 1);
+      }
+      if(tick >= ticks){
+        clearInterval(spinTimer);
+        coinArt.innerHTML = result === 'tails' ? ART.tails : ART.heads;
+        apply(ticks, 1);
+        isTails = result === 'tails';
+      }
+    }, tickMs);
+
+    coinTing(0, 0.45, true);
+    coinTing(duration / 1000, 0.6, false);
+
+    setTimeout(function(){
+      var hit = result === state.call;
+      state.total += 1;
+      if(hit){
+        state.called += 1;
+        state.streak += 1;
+        if(state.streak > state.best) state.best = state.streak;
+      }else{
+        state.streak = 0;
+      }
+      state.history.push({side:result, hit:hit});
+      if(state.history.length > 60) state.history = state.history.slice(-60);
+
+      renderStats();
+      renderHistory();
+      persist();
+
+      resultLine.classList.add(hit ? 'match' : 'miss');
+      resultLine.innerHTML = (result === 'heads' ? 'Heads' : 'Tails') + ' &mdash; <b>' + (hit ? 'Called it!' : 'Missed it.') + '</b>';
+
+      stageGlow.classList.add('on');
+
+      // restart each animation from zero - without the reflow a second flip inside
+      // the same half-second would re-add a class that is already there and nothing
+      // would play
+      var shock = document.getElementById('shock');
+      shock.classList.remove('go');
+      shock.classList.toggle('miss', !hit);
+      coin.classList.remove('landed');
+      resultLine.classList.remove('pop');
+      void shock.offsetWidth;
+      shock.classList.add('go');
+      coin.classList.add('landed');
+      resultLine.classList.add('pop');
+
+      bg.hit(hit);
+      if(hit && state.streak % 5 === 0) jackpot(state.streak);
+      // jackpot() runs just above and freezes play; without these guards the lines
+      // below would hand control straight back and cancel the pause
+      setStatus(celebrating ? 'Jackpot' : 'Ready', celebrating);
+      spinning = false;
+      flipBtn.disabled = celebrating;
+    }, duration);
+  }
+
+  flipBtn.addEventListener('click', flip);
+  coin.addEventListener('click', flip);
+  coin.addEventListener('keydown', function(e){
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); flip(); }
+  });
+  /* Wallet is identity only - read the address, use it as the player name. Nothing
+     is signed and no funds are touched. Extensions don't inject into sandboxed
+     frames, so this finds nothing over the artifact link and everything when the
+     same file is served from your own host. */
+  var btnWallet = document.getElementById('btnWallet');
+  var walletNote = document.getElementById('walletNote');
+
+  // plain ASCII on purpose: a mis-decoded character here reads as a wrong address,
+  // and the address is the player's identity
+  function shortAddr(a){ return a.slice(0, 6) + '...' + a.slice(-4); }
+
+  function connectWallet(){
+    var eth = window.ethereum;
+    if(!eth){
+      walletNote.textContent = 'No wallet in this window. Browser extensions cannot reach a sandboxed page - host this file yourself and it will connect.';
+      return;
+    }
+    btnWallet.disabled = true;
+    walletNote.textContent = 'Check MetaMask...';
+    eth.request({ method: 'eth_requestAccounts' }).then(function(accounts){
+      if(accounts && accounts.length){
+        state.wallet = accounts[0];
+        persist();
+        walletNote.textContent = 'Connected ' + shortAddr(accounts[0]);
+        afterConnect();
+      }else{
+        walletNote.textContent = 'No account was shared.';
+      }
+    }).catch(function(err){
+      walletNote.textContent = (err && err.code === 4001)
+        ? 'You rejected the request.'
+        : 'Could not connect to the wallet.';
+    }).then(function(){
+      btnWallet.disabled = false;
+    });
+  }
+
+  btnWallet.addEventListener('click', connectWallet);
+  document.getElementById('btnGuest').addEventListener('click', function(){
+    state.wallet = '';
+    afterConnect();
+  });
+  document.getElementById('btnContinue').addEventListener('click', beginPlay);
+  document.getElementById('btnStart').addEventListener('click', startFresh);
+  document.getElementById('btnNewGame').addEventListener('click', function(){
+    startReturning.hidden = true;
+    startNew.hidden = false;
+    nameInput.value = '';
+    nameInput.focus();
+  });
+  nameInput.addEventListener('keydown', function(e){
+    // second guard: only act while the start screen is actually on screen
+    if(e.key === 'Enter' && startScreen.classList.contains('on')){
+      e.preventDefault();
+      startFresh();
+    }
+  });
+
+  document.addEventListener('keydown', function(e){
+    if(e.code !== 'Space') return;
+    if(!bootReady || !boot.classList.contains('hide')){
+      e.preventDefault();
+      enterGame();
+      return;
+    }
+    if(startScreen.classList.contains('on') && !startGate.hidden){
+      e.preventDefault();
+      var guestBtn = document.getElementById('btnGuest');
+      (guestBtn.hidden ? document.getElementById('btnWallet') : guestBtn).click();
+      return;
+    }
+    if(startScreen.classList.contains('on')){
+      // Space is the arcade "go" key everywhere else here, so honour it on this
+      // screen too - but never while the player is typing their name into it
+      if(document.activeElement !== nameInput){
+        e.preventDefault();
+        (startNew.hidden ? document.getElementById('btnContinue') : document.getElementById('btnStart')).click();
+      }
+      return;
+    }
+    if(document.activeElement !== callHeads && document.activeElement !== callTails){
+      e.preventDefault();
+      flip();
+    }
+  });
+
+  callHeads.addEventListener('click', function(){ state.call = 'heads'; renderCall(); persist(); });
+  callTails.addEventListener('click', function(){ state.call = 'tails'; renderCall(); persist(); });
+
+  muteBtn.addEventListener('click', function(){
+    state.muted = !state.muted;
+    renderMute();
+    music.setMuted(state.muted);
+    persist();
+  });
+
+  bootEnter.addEventListener('click', enterGame);
+
+  renderStats();
+  renderHistory();
+  renderMute();
+  renderCall();
+  setStatus('Ready', false);
+})();
+</script>
