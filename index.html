@@ -236,7 +236,7 @@
   }
 
   @media (prefers-reduced-motion:reduce){
-    .wallet-dot{animation:none;}
+    .wallet-dot, .guest-bar-dot{animation:none;}
     /* soften, never remove: the panel still moves, just without the overshoot */
     .wmodal-card{transition:transform .12s ease;}
     #boot.ready .boot-enter{animation:none;}
@@ -804,35 +804,57 @@
     color:var(--text-dim);
   }
   .nudge-actions{display:flex; flex-direction:column; gap:9px;}
+  /* This is the one line telling a player their run does not count, so it is the
+     one thing on screen allowed to be louder than the game. Copper, not violet:
+     it has to separate itself from a UI that is violet everywhere else. */
   .guest-bar{
     display:flex;
     align-items:center;
-    justify-content:space-between;
-    gap:12px;
+    gap:11px;
     flex-wrap:wrap;
     margin:0 0 14px;
-    padding:9px 13px;
+    padding:12px 14px;
     font-size:13px;
-    color:var(--text-dim);
-    background:rgba(224,103,43,.10);
-    border:1px solid rgba(224,103,43,.35);
-    border-radius:10px;
+    font-weight:600;
+    line-height:1.45;
+    color:#FFD9C2;
+    background:linear-gradient(95deg, rgba(224,103,43,.34), rgba(224,103,43,.17));
+    border:1px solid rgba(255,146,87,.62);
+    border-radius:12px;
+    box-shadow:0 8px 22px rgba(224,103,43,.16);
   }
   .guest-bar[hidden]{display:none;}
+  .guest-bar-text{flex:1; min-width:170px;}
+  .guest-bar-text b{color:#FFF1E6; font-weight:700;}
+  .guest-bar-dot{
+    flex:none;
+    width:9px;
+    height:9px;
+    border-radius:50%;
+    background:var(--copper-bright);
+    box-shadow:0 0 0 3px rgba(255,146,87,.22);
+    animation:guestPulse 1.9s ease-in-out infinite;
+  }
+  @keyframes guestPulse{
+    0%,100%{box-shadow:0 0 0 3px rgba(255,146,87,.22);}
+    50%{box-shadow:0 0 0 6px rgba(255,146,87,.05);}
+  }
   .guest-bar-btn{
     flex:none;
-    padding:7px 12px;
+    padding:9px 14px;
     font-family:var(--font-display);
     font-size:10px;
     letter-spacing:.04em;
     cursor:pointer;
-    color:var(--text);
-    background:var(--panel);
-    border:1px solid var(--panel-line);
-    border-radius:8px;
+    color:#2A1206;
+    background:var(--copper-bright);
+    border:1px solid var(--copper-bright);
+    border-radius:9px;
+    transition:background .16s ease, transform .16s ease;
   }
-  .guest-bar-btn:hover{border-color:var(--amber);}
-  .guest-bar-btn:focus-visible{outline:2px solid var(--amber-bright); outline-offset:2px;}
+  .guest-bar-btn:hover{background:#FFB184; border-color:#FFB184;}
+  .guest-bar-btn:active{transform:translateY(1px);}
+  .guest-bar-btn:focus-visible{outline:2px solid #FFF1E6; outline-offset:2px;}
   .guest-note{
     margin:10px 2px 0;
     font-size:13px;
@@ -1148,6 +1170,7 @@
     /* a finger needs a bigger target than a mouse pointer does */
     .flip-btn, .start-btn, .call-btn{min-height:46px;}
     .wallet-row{padding:14px;}
+    .guest-bar-btn{flex:1 0 100%; min-height:42px;}
   }
 
   @media (max-width:420px){
@@ -1293,8 +1316,9 @@
     </div>
   </div>
 
-  <div class="guest-bar" id="guestBar" hidden>
-    <span>Guest mode. This run stays off the leaderboard.</span>
+  <div class="guest-bar" id="guestBar" role="status" hidden>
+    <span class="guest-bar-dot" aria-hidden="true"></span>
+    <span class="guest-bar-text"><b>Guest mode.</b> This run stays <b>off the leaderboard</b>.</span>
     <button class="guest-bar-btn" id="btnVerifyNow" type="button">Verify wallet</button>
   </div>
 
