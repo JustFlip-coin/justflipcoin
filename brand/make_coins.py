@@ -124,9 +124,12 @@ def plate(coin_img, size=800, coin_px=520):
     return img
 
 
-for name, kw in [("coin-h", dict(face="H")),
-                 ("coin-t", dict(face="T")),
-                 ("coin-split", dict(split=True))]:
-    coin = draw_coin(N * 24, **kw)
-    plate(coin).save(name + ".png")
-    print("wrote", name + ".png")
+# guard restored: without it, importing this module for draw_coin wrote three
+# plates into whatever directory the caller happened to be in
+if __name__ == "__main__":
+    for name, kw in [("coin-h", dict(face="H")),
+                     ("coin-t", dict(face="T")),
+                     ("coin-split", dict(split=True))]:
+        coin = draw_coin(N * 24, **kw)
+        plate(coin).save(name + ".png")
+        print("wrote", name + ".png")

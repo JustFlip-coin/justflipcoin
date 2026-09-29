@@ -1,0 +1,17 @@
+Just Flip palette
+
+ink              #0D0818
+panel            #160F28
+violet           #A78BFA
+violet bright    #D8B4FE
+violet deep      #4C2E8A
+copper           #E0672B
+copper bright    #FF9257
+gold light       #FCCA07
+gold             #FBB402
+gold dark        #DD6600
+gold deep        #CA5204
+outline          #230704
+silver light     #F4F9FC
+silver           #C6D5E0
+silver deep      #6B7C8C
