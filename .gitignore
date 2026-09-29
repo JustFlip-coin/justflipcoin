@@ -5,3 +5,6 @@ MASTERPLAN.md
 
 __pycache__/
 *.pyc
+
+# Telegram bot backend, deliberately unpublished
+telegram/
