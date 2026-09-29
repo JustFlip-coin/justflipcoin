@@ -1125,6 +1125,18 @@
     -webkit-tap-highlight-color:transparent;
   }
 
+  /* backdrop-filter makes the compositor re-read and blur everything behind the
+     element. Two of these sit in the topbar permanently, over a canvas that never
+     stops moving, so on a phone the GPU was blurring a live animation every frame
+     for the sake of a 10px haze nobody can see. */
+  @media (pointer: coarse), (max-width:768px){
+    #boot, .pill, .icon-btn, .start, .wmodal{
+      -webkit-backdrop-filter:none;
+      backdrop-filter:none;
+    }
+    .pill, .icon-btn{background:rgba(22,15,40,.92);}
+  }
+
   @media (max-width:520px){
     .wrap{padding-left:14px; padding-right:14px;}
     .stage{padding:16px 6px 6px;}
@@ -2187,6 +2199,21 @@
     // reduce-motion softens the drift instead of freezing it - a still backdrop
     // reads as broken, which is what shipping it stopped-dead looked like
     var CALM = reduced ? 0.35 : 1;
+    var healIn = 30;
+
+    /* A phone is not a laptop with a smaller screen: it has a fraction of the fill
+       rate and it is holding a whole browser in a WebView. This backdrop is
+       atmosphere, not gameplay, so on a touch device it runs at half the frame
+       rate with fewer things in it. The coin itself stays on CSS transitions and
+       is untouched by any of this. */
+    var lowPower = !(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+    var MIN_MS = lowPower ? 32 : 0;
+
+    /* The canvas is stretched to the window by CSS, so its backing store does not
+       have to match it. On a phone it holds a quarter of the pixels and the
+       compositor scales the result up. Everything here is a soft glow with no edge
+       to lose, so it costs four times less fill for a difference you cannot see. */
+    var SCALE = lowPower ? 0.5 : 1;
 
     function tileFrom(svg){
       var c = document.createElement('canvas');
@@ -2208,19 +2235,24 @@
       ];
     }
 
+    var cssW = 0, cssH = 0;
     function resize(){
       var v = viewport();
-      W = cv.width = Math.max(1, v[0]);
-      H = cv.height = Math.max(1, v[1]);
+      cssW = v[0]; cssH = v[1];
+      W = cv.width  = Math.max(1, Math.round(v[0] * SCALE));
+      H = cv.height = Math.max(1, Math.round(v[1] * SCALE));
+      baseKey = ''; flashKey = '';   // both are sized to the canvas, so rebuild them
     }
 
     function spawn(seeded){
       var depth = Math.random();
+      // sizes are in canvas pixels and the canvas is smaller than the screen it is
+      // stretched across, so they shrink with it or everything comes out double
       return {
         x: Math.random() * W,
-        y: seeded ? Math.random() * H : H + 60,
-        size: 14 + depth * 40,
-        speed: 6 + depth * 32,
+        y: seeded ? Math.random() * H : H + 60 * SCALE,
+        size: (14 + depth * 40) * SCALE,
+        speed: (6 + depth * 32) * SCALE,
         phase: Math.random() * Math.PI * 2,
         spin: 0.3 + Math.random() * 0.9,
         alpha: 0.28 + depth * 0.38
@@ -2229,35 +2261,87 @@
 
     var GLOW = ['167,139,250', '216,180,254', '139,92,246', '196,151,255'];
 
+    /* A radial gradient is rebuilt from scratch on every call, and there were
+       thirteen of them per frame being poured over half the screen with additive
+       blending. Each colour is baked into a sprite once instead, and a blob is
+       then a scaled blit: the same picture, none of the per frame allocation. */
+    var blobSprites = {};
+    function blobSprite(c){
+      if(blobSprites[c]) return blobSprites[c];
+      var R = 128;
+      var sp = document.createElement('canvas');
+      sp.width = sp.height = R * 2;
+      var sg = sp.getContext('2d');
+      var gr = sg.createRadialGradient(R, R, 0, R, R, R);
+      gr.addColorStop(0, 'rgba(' + c + ',1)');
+      gr.addColorStop(0.55, 'rgba(' + c + ',0.35)');
+      gr.addColorStop(1, 'rgba(' + c + ',0)');
+      sg.fillStyle = gr;
+      sg.fillRect(0, 0, R * 2, R * 2);
+      blobSprites[c] = sp;
+      return sp;
+    }
+
+    var flashCv = null, flashKey = '';
+    function flashSprite(){
+      var key = W + 'x' + H;
+      if(key !== flashKey){
+        flashCv = document.createElement('canvas');
+        flashCv.width = Math.max(1, W); flashCv.height = Math.max(1, H);
+        var fg = flashCv.getContext('2d');
+        var gd = fg.createRadialGradient(W/2, H*0.42, 0, W/2, H*0.42, Math.max(W,H) * 0.55);
+        gd.addColorStop(0, 'rgba(255,206,88,0.20)');
+        gd.addColorStop(1, 'rgba(255,206,88,0)');
+        fg.fillStyle = gd;
+        fg.fillRect(0, 0, W, H);
+        flashKey = key;
+      }
+      return flashCv;
+    }
+
+    // the ground wash only changes when the canvas or the streak does
+    var baseGrad = null, baseKey = '';
+    function baseFill(warm){
+      var key = W + 'x' + H + ':' + warm.toFixed(2);
+      if(key !== baseKey){
+        baseGrad = g.createRadialGradient(W * 0.5, H * 0.45, 0, W * 0.5, H * 0.45, Math.max(W, H) * 0.78);
+        baseGrad.addColorStop(0, 'rgba(72,42,132,' + (0.55 * warm).toFixed(3) + ')');
+        baseGrad.addColorStop(0.6, 'rgba(40,23,76,0.42)');
+        baseGrad.addColorStop(1, 'rgba(16,9,30,0.22)');
+        baseKey = key;
+      }
+      return baseGrad;
+    }
+
     function spawnBlob(){
       return {
         x: Math.random() * W,
         y: Math.random() * H,
-        r: 140 + Math.random() * 200,
-        vx: (Math.random() - 0.5) * 18,
-        vy: -(8 + Math.random() * 18),
+        r: (140 + Math.random() * 200) * SCALE,
+        vx: (Math.random() - 0.5) * 18 * SCALE,
+        vy: -(8 + Math.random() * 18) * SCALE,
         a: 0.30 + Math.random() * 0.18,
         c: GLOW[Math.floor(Math.random() * GLOW.length)]
       };
     }
 
     function draw(dt){
-      // self-heal the size every frame: if the layout wasn't ready when we started,
-      // the canvas is 1px wide and the whole backdrop would stay blank forever
-      var v = viewport();
-      if(v[0] && v[1] && (v[0] !== W || v[1] !== H)) resize();
+      // self-heal the size, because if the layout was not ready at startup the
+      // canvas is 1px wide and stays blank forever. Reading window size forces the
+      // browser to settle layout, so this asks twice a second, not sixty times.
+      if(--healIn <= 0){
+        healIn = 30;
+        var v = viewport();
+        if(v[0] && v[1] && (v[0] !== cssW || v[1] !== cssH)) resize();
+      }
 
       g.clearRect(0, 0, W, H);
       var warm = 1 + Math.min(state.streak, 8) * 0.11;
-      var i, p, w, side, bl, gr;
+      var i, p, w, side, bl;
 
       // lift the field off pure black first - additive glow on a 96% black ground
       // just vanishes, which is why earlier passes read as "no background at all"
-      var base = g.createRadialGradient(W * 0.5, H * 0.45, 0, W * 0.5, H * 0.45, Math.max(W, H) * 0.78);
-      base.addColorStop(0, 'rgba(72,42,132,' + (0.55 * warm).toFixed(3) + ')');
-      base.addColorStop(0.6, 'rgba(40,23,76,0.42)');
-      base.addColorStop(1, 'rgba(16,9,30,0.22)');
-      g.fillStyle = base;
+      g.fillStyle = baseFill(warm);
       g.fillRect(0, 0, W, H);
 
       // additive light pools: where they overlap the colour genuinely brightens
@@ -2268,13 +2352,10 @@
         bl.x += bl.vx * dt * CALM;
         bl.y += bl.vy * dt * CALM;
         if(bl.y < -bl.r){ bl.y = H + bl.r; bl.x = Math.random() * W; }
-        gr = g.createRadialGradient(bl.x, bl.y, 0, bl.x, bl.y, bl.r);
-        gr.addColorStop(0, 'rgba(' + bl.c + ',' + (bl.a * warm).toFixed(3) + ')');
-        gr.addColorStop(0.55, 'rgba(' + bl.c + ',' + (bl.a * warm * 0.35).toFixed(3) + ')');
-        gr.addColorStop(1, 'rgba(' + bl.c + ',0)');
-        g.fillStyle = gr;
-        g.fillRect(bl.x - bl.r, bl.y - bl.r, bl.r * 2, bl.r * 2);
+        g.globalAlpha = Math.min(1, bl.a * warm);
+        g.drawImage(blobSprite(bl.c), bl.x - bl.r, bl.y - bl.r, bl.r * 2, bl.r * 2);
       }
+      g.globalAlpha = 1;
       g.globalCompositeOperation = 'source-over';
 
       // coins drifting at different depths, near ones bigger and faster
@@ -2283,7 +2364,7 @@
         p = parts[i];
         p.y -= p.speed * dt * CALM;
         p.phase += p.spin * dt * CALM;
-        if(p.y < -60){
+        if(p.y < -60 * SCALE){
           // burst coins are temporary: recycling them would leave the backdrop
           // permanently denser after every jackpot
           if(p.temp){ parts.splice(i, 1); i--; continue; }
@@ -2297,32 +2378,38 @@
       }
       g.globalAlpha = 1;
 
-      // the win flash lands on top of everything so it actually registers
+      // the win flash lands on top of everything so it actually registers. It fades
+      // over about seventy frames, so its gradient is baked once and dimmed with
+      // globalAlpha rather than rebuilt on the way down.
       if(flash > 0.01){
-        var grd = g.createRadialGradient(W / 2, H * 0.42, 0, W / 2, H * 0.42, Math.max(W, H) * 0.55);
-        grd.addColorStop(0, 'rgba(255,206,88,' + (0.20 * flash).toFixed(3) + ')');
-        grd.addColorStop(1, 'rgba(255,206,88,0)');
-        g.fillStyle = grd;
-        g.fillRect(0, 0, W, H);
+        var fs = flashSprite();
+        g.globalAlpha = Math.min(1, flash);
+        g.drawImage(fs, 0, 0, W, H);
+        g.globalAlpha = 1;
       }
     }
 
     function loop(ts){
-      var dt = Math.min(0.05, (ts - last) / 1000 || 0.016);
+      // queue the next frame first, so an early return still keeps the loop alive
+      requestAnimationFrame(loop);
+      var elapsed = ts - last;
+      if(elapsed < MIN_MS) return;
+      var dt = Math.min(0.05, elapsed / 1000 || 0.016);
       last = ts;
       flash *= 0.94;
       draw(dt);
-      requestAnimationFrame(loop);
     }
 
     return {
       start: function(){
         tiles = [tileFrom(ART.heads), tileFrom(ART.tails)];
         resize();
+        var nCoins = lowPower ? 18 : 40;
+        var nBlobs = lowPower ? 6 : 13;
         parts = [];
-        for(var i = 0; i < 40; i++) parts.push(spawn(true));
+        for(var i = 0; i < nCoins; i++) parts.push(spawn(true));
         blobs = [];
-        for(i = 0; i < 13; i++) blobs.push(spawnBlob());
+        for(i = 0; i < nBlobs; i++) blobs.push(spawnBlob());
         window.addEventListener('resize', resize);
         draw(0);
         last = performance.now();
@@ -2331,14 +2418,14 @@
       hit: function(won){ if(won) flash = reduced ? 0.5 : 1; },
       burst: function(){
         flash = 1;
-        if(parts.length > 72) return;
-        for(var i = 0; i < 18; i++){
+        if(parts.length > (lowPower ? 34 : 72)) return;
+        for(var i = 0; i < (lowPower ? 8 : 18); i++){
           var p = spawn(false);
           p.temp = true;
           p.y = H * (0.5 + Math.random() * 0.45);
           p.x = W * (0.2 + Math.random() * 0.6);
-          p.speed = 70 + Math.random() * 110;
-          p.size = 16 + Math.random() * 30;
+          p.speed = (70 + Math.random() * 110) * SCALE;
+          p.size = (16 + Math.random() * 30) * SCALE;
           p.alpha = 0.35 + Math.random() * 0.3;
           parts.push(p);
         }
