@@ -1,2 +1,7 @@
 # Local writing notes, kept out of the public repo
 MASTERPLAN-EN.md
+X-THREAD.md
+MASTERPLAN.md
+
+__pycache__/
+*.pyc

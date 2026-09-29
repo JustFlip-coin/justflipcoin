@@ -1,4 +1,34 @@
-<title>Just Flip</title>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0D0818">
+<title>Just Flip: Retro Arcade Coin Flip Game</title>
+<meta name="description" content="Call heads or tails, toss the coin, and build a streak. Just Flip is a free retro arcade coin flip game with a shared leaderboard and MetaMask sign in.">
+<link rel="canonical" href="https://justflip-coin.github.io/justflipcoin/">
+<meta name="robots" content="index, follow, max-image-preview:large">
+
+<!-- Cards for X, Telegram, WhatsApp and Discord. Absolute URLs are required:
+     every one of these crawlers fetches the image from its own server, so a
+     relative path resolves against nothing and the card comes out blank. Change
+     all four of these together when the custom domain lands. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Just Flip">
+<meta property="og:title" content="Just Flip: Retro Arcade Coin Flip Game">
+<meta property="og:description" content="Call heads or tails, toss the coin, and build a streak. Free to play, with a shared leaderboard.">
+<meta property="og:url" content="https://justflip-coin.github.io/justflipcoin/">
+<meta property="og:image" content="https://justflip-coin.github.io/justflipcoin/brand/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A gold Heads coin and a silver Tails coin on a violet field">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Just Flip: Retro Arcade Coin Flip Game">
+<meta name="twitter:description" content="Call heads or tails, toss the coin, and build a streak. Free to play, with a shared leaderboard.">
+<meta name="twitter:image" content="https://justflip-coin.github.io/justflipcoin/brand/og.png">
+
+<link rel="icon" href="brand/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="brand/coin-split-48.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
@@ -29,6 +59,7 @@
   html,body{margin:0;}
   body{
     min-height:100vh;
+    min-height:100dvh;
     background:
       radial-gradient(circle, rgba(167,139,250,.09) 1px, transparent 1.4px) 0 0/24px 24px,
       radial-gradient(ellipse 900px 500px at 50% 0%, #241242, transparent 60%),
@@ -85,6 +116,8 @@
     width:100%;
     max-width:640px;
     min-height:100vh;
+    /* dvh follows the bar as it slides away; vh stays as the fallback */
+    min-height:100dvh;
     transition:opacity .45s ease;
     display:flex;
     flex-direction:column;
@@ -203,6 +236,7 @@
   }
 
   @media (prefers-reduced-motion:reduce){
+    .wallet-dot{animation:none;}
     #boot.ready .boot-enter{animation:none;}
     .boot-enter{transition:none;}
   }
@@ -493,7 +527,12 @@
     -webkit-backdrop-filter:blur(2px);
     backdrop-filter:blur(2px);
   }
-  .start.on{opacity:1; pointer-events:auto;}
+  /* opacity 0 still leaves every button in the tab order, so a stray Tab during
+     play could land on Continue and Space would fire it, yanking the player back
+     to the start card mid flip. visibility:hidden takes them out of reach; the
+     delayed transition lets the fade finish before they go. */
+  .start{visibility:hidden; transition:opacity .35s ease, visibility 0s linear .35s;}
+  .start.on{opacity:1; pointer-events:auto; visibility:visible; transition:opacity .35s ease, visibility 0s;}
   .start-card{
     width:100%;
     max-width:380px;
@@ -559,6 +598,191 @@
     margin:12px 0 0;
     min-height:20px;
   }
+  /* Wallet picker. It sits above the start screen (48) and below the boot gate
+     (50), so it can never cover the loading sequence. */
+  .wmodal{
+    position:fixed;
+    inset:0;
+    z-index:49;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    background:rgba(8,4,16,.72);
+    -webkit-backdrop-filter:blur(3px);
+    backdrop-filter:blur(3px);
+  }
+  .wmodal[hidden]{display:none;}
+  .wmodal-card{
+    width:100%;
+    max-width:360px;
+    border:2px solid var(--panel-line);
+    border-radius:14px;
+    background:var(--panel);
+    padding:16px;
+    text-align:left;
+    box-shadow:0 18px 50px rgba(0,0,0,.55);
+  }
+  .wmodal-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin:0 0 14px;
+  }
+  .wmodal-title{
+    margin:0;
+    font-family:var(--font-display);
+    font-size:13px;
+    letter-spacing:.04em;
+    color:var(--text);
+  }
+  .wmodal-x{
+    flex:none;
+    width:28px;
+    height:28px;
+    padding:0;
+    font-size:20px;
+    line-height:1;
+    cursor:pointer;
+    color:var(--text-dim);
+    background:none;
+    border:0;
+    border-radius:7px;
+  }
+  .wmodal-x:hover{color:var(--text); background:rgba(167,139,250,.12);}
+  .wmodal-x:focus-visible{outline:2px solid var(--amber-bright); outline-offset:2px;}
+  .wallet-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    width:100%;
+    padding:12px 14px;
+    cursor:pointer;
+    text-align:left;
+    color:var(--text);
+    background:rgba(167,139,250,.07);
+    border:1px solid var(--panel-line);
+    border-radius:12px;
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .wallet-row:hover{background:rgba(167,139,250,.14); border-color:var(--amber);}
+  .wallet-row:focus-visible{outline:2px solid var(--amber-bright); outline-offset:2px;}
+  .wallet-mark{flex:none; width:30px; height:30px; display:block;}
+  .wallet-row-name{
+    flex:1;
+    font-family:var(--font-display);
+    font-size:12px;
+    letter-spacing:.03em;
+  }
+  .wallet-row-tag{
+    flex:none;
+    font-size:13px;
+    color:var(--text-dim);
+  }
+  .wallet-row-tag.off{color:var(--copper);}
+  /* names what this browser actually announced, so a wallet that never shows up
+     is a fact on screen instead of a guess */
+  .wallet-found{
+    margin:10px 2px 0;
+    font-size:12px;
+    line-height:1.5;
+    color:var(--text-dim);
+  }
+  /* Pressing Connect hands control to an extension window this page can neither
+     see nor raise. All we can do is say plainly where to look, so nobody sits in
+     front of a screen that appears to have frozen. */
+  .wallet-help{
+    margin:12px 0 0;
+    padding:12px 14px;
+    text-align:left;
+    border:1px solid var(--panel-line);
+    border-radius:10px;
+    background:rgba(167,139,250,.07);
+  }
+  .wallet-help-head{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    font-size:15px;
+    color:var(--text);
+  }
+  .wallet-help p{
+    margin:6px 0 0;
+    font-size:14px;
+    line-height:1.5;
+    color:var(--text-dim);
+  }
+  .wallet-help b{color:var(--amber-bright); font-weight:600;}
+  .wallet-dot{
+    width:9px;
+    height:9px;
+    flex:none;
+    border-radius:50%;
+    background:var(--amber-bright);
+    animation:walletPulse 1.1s ease-in-out infinite;
+  }
+  @keyframes walletPulse{
+    0%,100%{opacity:1; transform:scale(1);}
+    50%{opacity:.35; transform:scale(.7);}
+  }
+  /* an explicit display beats the hidden attribute, so exempt it by name or the
+     install link never goes away */
+  a.start-btn:not([hidden]){display:block; text-decoration:none; text-align:center;}
+  /* a plain rule with the word sitting in it, so the two routes read as a choice
+     rather than as two buttons of equal weight */
+  .gate-or{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:16px 2px 12px;
+    font-size:12px;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .gate-or::before, .gate-or::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background:var(--panel-line);
+  }
+  .guest-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+    margin:0 0 14px;
+    padding:9px 13px;
+    font-size:13px;
+    color:var(--text-dim);
+    background:rgba(224,103,43,.10);
+    border:1px solid rgba(224,103,43,.35);
+    border-radius:10px;
+  }
+  .guest-bar[hidden]{display:none;}
+  .guest-bar-btn{
+    flex:none;
+    padding:7px 12px;
+    font-family:var(--font-display);
+    font-size:10px;
+    letter-spacing:.04em;
+    cursor:pointer;
+    color:var(--text);
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:8px;
+  }
+  .guest-bar-btn:hover{border-color:var(--amber);}
+  .guest-bar-btn:focus-visible{outline:2px solid var(--amber-bright); outline-offset:2px;}
+  .guest-note{
+    margin:10px 2px 0;
+    font-size:13px;
+    line-height:1.5;
+    color:var(--text-dim);
+  }
+  .guest-note b{color:var(--text); font-weight:600;}
   .start-btn.primary{
     color:#160B2E;
     background:linear-gradient(180deg,var(--amber-bright),var(--amber));
@@ -836,6 +1060,27 @@
     color:var(--amber-bright);
   }
 
+  /* browsers hold a tap for 300ms to see whether it becomes a double tap zoom.
+     manipulation opts out of that wait, which is the single biggest thing that
+     makes a phone feel slow here. */
+  button, a, .coin, .wallet-row, input{
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  @media (max-width:520px){
+    .wrap{padding-left:14px; padding-right:14px;}
+    .stage{padding:16px 6px 6px;}
+    .stage-glow{width:230px; height:230px; top:12px;}
+    .stats{grid-template-columns:repeat(2,1fr);}
+    .statusbar{justify-content:center; text-align:center;}
+    .wmodal{padding:14px;}
+    .start{padding:14px;}
+    /* a finger needs a bigger target than a mouse pointer does */
+    .flip-btn, .start-btn, .call-btn{min-height:46px;}
+    .wallet-row{padding:14px;}
+  }
+
   @media (max-width:420px){
     .stats{grid-template-columns:repeat(2,1fr);}
     .statusbar{justify-content:center; text-align:center;}
@@ -846,7 +1091,27 @@
   }
 </style>
 
-<div id="boot" aria-hidden="true">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoGame",
+  "name": "Just Flip",
+  "url": "https://justflip-coin.github.io/justflipcoin/",
+  "image": "https://justflip-coin.github.io/justflipcoin/brand/og.png",
+  "description": "A retro arcade coin flip game. Call heads or tails, toss the coin, and build a streak.",
+  "genre": ["Arcade", "Casual"],
+  "gamePlatform": ["Web browser", "Mobile web"],
+  "applicationCategory": "Game",
+  "operatingSystem": "Any",
+  "inLanguage": "en",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+</head>
+<body>
+
+<div id="boot">
   <div class="boot-logo">JUST FLIP</div>
   <div class="boot-sub">Arcade Coin Toss</div>
   <canvas class="boot-dino" id="dinoCanvas" width="120" height="36" aria-hidden="true"></canvas>
@@ -855,7 +1120,7 @@
     <div class="boot-blocks" id="bootBlocks"></div>
   </div>
   <div class="boot-status" id="bootStatus">Calibrating coin&hellip;</div>
-  <button class="boot-enter" id="bootEnter" type="button" tabindex="-1">Press Space to Enter</button>
+  <button class="boot-enter" id="bootEnter" type="button">Tap or Press Enter</button>
 </div>
 
 <canvas id="bg" aria-hidden="true"></canvas>
@@ -869,11 +1134,14 @@
   <div class="start-card">
     <p class="start-eyebrow">Player</p>
     <div id="startGate">
-      <h2 class="start-name">Ready to play</h2>
-      <span class="start-line">Connect a wallet, or jump straight in as a guest.</span>
+      <h2 class="start-name">Verify to play</h2>
+      <span class="start-line">The real way in is a MetaMask wallet. Approve the connection, sign one short message, and the wallet is proven yours.</span>
       <button class="start-btn primary" id="btnWallet" type="button">Connect Wallet</button>
       <p class="start-note" id="walletNote"></p>
+      <p class="guest-note">The signature is <b>free</b>. It moves no funds and approves no transaction. Close this tab and you verify again next time.</p>
+      <div class="gate-or"><span>or</span></div>
       <button class="start-btn" id="btnGuest" type="button">Play as Guest</button>
+      <p class="guest-note">Just curious? Take a few flips without a wallet. Guest runs stay <b>off the leaderboard</b> and live in this browser only.</p>
     </div>
     <div id="startReturning" hidden>
       <h2 class="start-name" id="startWelcome">Welcome back</h2>
@@ -893,6 +1161,39 @@
   </div>
 </div>
 
+<div class="wmodal" id="walletModal" hidden>
+  <div class="wmodal-card" role="dialog" aria-modal="true" aria-labelledby="wmodalTitle">
+    <div class="wmodal-head">
+      <h3 class="wmodal-title" id="wmodalTitle">Connect a wallet</h3>
+      <button class="wmodal-x" id="wmodalClose" type="button" aria-label="Close">&times;</button>
+    </div>
+    <button class="wallet-row" id="rowMetaMask" type="button">
+      <svg class="wallet-mark" viewBox="0 0 33 31" aria-hidden="true">
+        <polygon fill="#E2761B" points="1.0,0.6 11.8,8.4 21.2,8.4 32.0,0.6 28.8,14.6 32.6,20.2 29.8,27.8 22.0,26.8 16.5,30.8 11.0,26.8 3.2,27.8 0.4,20.2 4.2,14.6"/>
+        <polygon fill="#E4761B" points="4.2,14.6 11.8,8.4 21.2,8.4 28.8,14.6 27.0,22.4 6.0,22.4"/>
+        <polygon fill="#F6851B" points="11.8,8.4 21.2,8.4 22.6,22.4 10.4,22.4"/>
+        <polygon fill="#CD6116" points="0.4,20.2 6.0,22.4 8.2,26.2 11.0,26.8 3.2,27.8"/>
+        <polygon fill="#CD6116" points="32.6,20.2 27.0,22.4 24.8,26.2 22.0,26.8 29.8,27.8"/>
+        <polygon fill="#F6851B" points="6.0,22.4 27.0,22.4 24.8,26.2 8.2,26.2"/>
+        <polygon fill="#D7C1B3" points="11.0,26.8 12.6,24.8 20.4,24.8 22.0,26.8 16.5,30.8"/>
+        <polygon fill="#C0AD9E" points="12.6,24.8 20.4,24.8 20.4,26.4 12.6,26.4"/>
+        <polygon fill="#233447" points="8.8,15.2 13.2,16.0 12.6,19.2 8.2,18.4"/>
+        <polygon fill="#233447" points="24.2,15.2 24.8,18.4 20.4,19.2 19.8,16.0"/>
+        <polygon fill="#763D16" points="1.0,0.6 11.8,8.4 8.6,9.6"/>
+        <polygon fill="#763D16" points="32.0,0.6 21.2,8.4 24.4,9.6"/>
+      </svg>
+      <span class="wallet-row-name">MetaMask</span>
+      <span class="wallet-row-tag" id="mmTag">Detected</span>
+    </button>
+    <p class="wallet-found" id="walletFound"></p>
+    <div class="wallet-help" id="walletHelp" hidden>
+      <div class="wallet-help-head"><span class="wallet-dot" aria-hidden="true"></span><span id="walletHelpHead">Waiting for MetaMask</span></div>
+      <p id="walletHelpText"></p>
+    </div>
+    <a class="start-btn" id="btnInstall" href="https://metamask.io/download" target="_blank" rel="noopener noreferrer" hidden>Get MetaMask</a>
+  </div>
+</div>
+
 <div class="wrap">
   <div class="topbar">
     <div class="brand">
@@ -909,6 +1210,11 @@
       </button>
       <span class="pill status" id="statusPill"><span class="dot"></span><span id="statusText">Ready</span></span>
     </div>
+  </div>
+
+  <div class="guest-bar" id="guestBar" hidden>
+    <span>Guest mode. This run stays off the leaderboard.</span>
+    <button class="guest-bar-btn" id="btnVerifyNow" type="button">Verify wallet</button>
   </div>
 
   <div class="hero">
@@ -987,7 +1293,7 @@
         <span class="num">2</span>
         <div>
           <b>Throw the coin</b>
-          <p>Three ways, all the same toss: press <span class="kbd">Space</span>, click the FLIP button, or click the coin itself.</p>
+          <p id="tutorThrow">Three ways, all the same toss.</p>
         </div>
       </li>
       <li>
@@ -1027,7 +1333,7 @@
 
   <div class="statusbar">
     <span>&#9733; <b id="barPlayer">Player</b> &middot; 2 Sides &middot; <b id="barRecord">Best 0</b></span>
-    <span>Press <span class="kbd">Space</span> to flip</span>
+    <span id="barHint">Tap the coin to flip</span>
   </div>
 </div>
 
@@ -1036,7 +1342,7 @@
   var STORE_KEY = 'call-it-state-v2';
   var state = {
     total:0, called:0, streak:0, best:0,
-    history:[], muted:false, call:'heads', name:'', wallet:''
+    history:[], muted:false, call:'heads', name:'', wallet:'', guest:false
   };
   try{
     var saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
@@ -1225,9 +1531,22 @@
   })();
 
   // plain ASCII dots: a mis-decoded ellipsis turns these into "coin...' garbage
-  var bootMsgs = ['Calibrating coin...','Reading the odds...','Polishing edges...','Just Flip is ready for you.'];
+  /* Named after work this screen is actually doing, not invented milestones:
+     the sprites are drawn, the backdrop canvas is running, the audio graph is
+     staged for the first gesture. */
+  var bootMsgs = [
+    'Loading assets...',
+    'Building coin textures...',
+    'Rendering backdrop...',
+    'Preparing audio engine...',
+    'Just Flip is ready.'
+  ];
+  var entered = false;
   function enterGame(){
-    if(!bootReady) return;
+    // the button sits inside the overlay and both listen for clicks, so without
+    // this the tap that opens the game runs the whole entry twice
+    if(!bootReady || entered) return;
+    entered = true;
     boot.classList.add('hide');
     dino.stop();
     showStart();
@@ -1247,20 +1566,33 @@
     startNew.hidden = true;
     startScreen.classList.add('on');
 
-    // A gate nobody can pass is just a locked door. Where a wallet is genuinely
-    // reachable the gate holds; on a sandboxed page, where the browser cannot
-    // expose one at all, let people in as guests instead of stranding them.
-    // guest is always on offer: hiding it locked out anyone who had a wallet
-    // installed but did not want to use it
-    var guest = document.getElementById('btnGuest');
-    guest.hidden = false;
-    document.getElementById('walletNote').textContent = window.ethereum
-      ? ''
-      : 'No wallet detected in this browser. Install MetaMask to connect, or just play as a guest.';
+    document.getElementById('walletNote').textContent = metamask()
+      ? '' : 'MetaMask not found in this browser.';
+    hideWalletHelp();
+    markDetected();
 
-    setTimeout(function(){
-      (window.ethereum ? document.getElementById('btnWallet') : guest).focus();
-    }, 380);
+    setTimeout(function(){ document.getElementById('btnWallet').focus(); }, 380);
+
+    /* A signature earlier in this tab lets the player back in without signing on
+       every reload, but only if MetaMask still hands over that same account right
+       now. A locked wallet, a revoked permission or a switched account all fail
+       here, and the door stays shut. */
+    var seen = verifiedGet();
+    var mm = metamask();
+    if(seen && mm){
+      mm.request({ method: 'eth_accounts' }).then(function(acc){
+        if(!startGate || startGate.hidden) return;
+        if(acc && acc.length && sameAddr(acc[0], seen.address)){
+          state.wallet = acc[0];
+          state.guest = false;
+          persist();
+          document.getElementById('walletNote').textContent = 'Verified ' + shortAddr(acc[0]);
+          afterConnect();
+        }else{
+          verifiedClear();
+        }
+      }).catch(function(){ verifiedClear(); });
+    }
   }
 
   function afterConnect(){
@@ -1293,6 +1625,9 @@
   }
 
   function submitScore(name, streak){
+    // guests are here to look, not to compete: a peek should not be able to
+    // write a score nobody can trace back to a wallet
+    if(state.guest || !state.wallet) return;
     if(!name || !streak || streak < 1) return;
     try{
       fetch(SUPA_URL + '/rest/v1/scores', {
@@ -1358,6 +1693,7 @@
     flipBtn.focus();
     renderStats();
     renderHistory();
+    renderGuestBar();
     loadLeaderboard();
     music.start();
   }
@@ -2045,7 +2381,7 @@
       persist();
 
       resultLine.classList.add(hit ? 'match' : 'miss');
-      resultLine.innerHTML = (result === 'heads' ? 'Heads' : 'Tails') + ' &mdash; <b>' + (hit ? 'Called it!' : 'Missed it.') + '</b>';
+      resultLine.innerHTML = (result === 'heads' ? 'Heads' : 'Tails') + ' &middot; <b>' + (hit ? 'Called it!' : 'Missed it.') + '</b>';
 
       stageGlow.classList.add('on');
 
@@ -2069,6 +2405,9 @@
       setStatus(celebrating ? 'Jackpot' : 'Ready', celebrating);
       spinning = false;
       flipBtn.disabled = celebrating;
+      // disabling the button mid flip threw focus onto <body>; hand it back so the
+      // next Space lands on the control the player was actually using
+      if(!celebrating && document.activeElement === document.body) flipBtn.focus();
     }, duration);
   }
 
@@ -2077,10 +2416,158 @@
   coin.addEventListener('keydown', function(e){
     if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); flip(); }
   });
-  /* Wallet is identity only - read the address, use it as the player name. Nothing
-     is signed and no funds are touched. Extensions don't inject into sandboxed
-     frames, so this finds nothing over the artifact link and everything when the
-     same file is served from your own host. */
+  /* Wallet is the door. Reading the address only proves an extension handed one
+     over; signing a fresh nonce proves whoever is at the keyboard can unlock that
+     account right now. Still a signature, never a transaction: no funds move.
+
+     Worth being straight about the limit. This page is static, with nothing behind
+     it, so the check runs on the player's own machine and a determined person with
+     devtools can walk around it. It stops casual entry, not a motivated attacker.
+     Real enforcement needs a server that verifies the signature and issues a
+     token, which this build does not have. */
+  /* Wallet discovery.
+
+     window.ethereum is one slot that every wallet extension writes to, so with
+     two installed the winner is simply whoever loaded last. Ask that slot for
+     MetaMask and a different wallet answers, or nothing does, and the popup the
+     player is waiting for never arrives. Worse, some wallets set isMetaMask on
+     themselves to pass exactly the check this page used to make.
+
+     EIP-6963 replaced the scramble: each wallet announces itself with its own
+     rdns id, so we can ask for io.metamask and get io.metamask. The old slots
+     stay as a fallback for wallets that have not caught up. */
+  var providers = [];
+
+  /* Order matters and is the whole point. Half these wallets also set isMetaMask
+     so that dapps checking only that flag keep working with them, which means
+     isMetaMask alone identifies nothing. Every wallet with a name of its own is
+     asked about first, and isMetaMask is what is left over. */
+  function walletName(p){
+    if(!p) return { name: 'Wallet' };
+    if(p.isPhantom)        return { name: 'Phantom', rdns: 'app.phantom' };
+    if(p.isCoinbaseWallet) return { name: 'Coinbase Wallet', rdns: 'com.coinbase.wallet' };
+    if(p.isRabby)          return { name: 'Rabby', rdns: 'io.rabby' };
+    if(p.isBraveWallet)    return { name: 'Brave Wallet', rdns: 'com.brave.wallet' };
+    if(p.isTrust || p.isTrustWallet) return { name: 'Trust Wallet', rdns: 'com.trustwallet.app' };
+    if(p.isOkxWallet || p.isOKExWallet) return { name: 'OKX Wallet', rdns: 'com.okex.wallet' };
+    if(p.isMetaMask)       return { name: 'MetaMask', rdns: 'io.metamask' };
+    return { name: 'Injected wallet' };
+  }
+
+  // the same impostor flags, reused by the fallback pass below
+  function notMetaMask(p){
+    return !!(p.isPhantom || p.isCoinbaseWallet || p.isRabby || p.isBraveWallet ||
+              p.isTrust || p.isTrustWallet || p.isOkxWallet || p.isOKExWallet);
+  }
+
+  function addProvider(info, provider){
+    if(!provider) return;
+    for(var i = 0; i < providers.length; i++){
+      if(providers[i].provider === provider) return;
+    }
+    providers.push({ info: info || walletName(provider), provider: provider });
+  }
+
+  function discoverWallets(){
+    window.addEventListener('eip6963:announceProvider', function(e){
+      if(e && e.detail && e.detail.provider){
+        addProvider(e.detail.info, e.detail.provider);
+        markDetected();
+      }
+    });
+    try{ window.dispatchEvent(new Event('eip6963:requestProvider')); }catch(e){}
+
+    var eth = window.ethereum;
+    if(eth && eth.providers && eth.providers.length){
+      for(var i = 0; i < eth.providers.length; i++){ addProvider(null, eth.providers[i]); }
+    }else if(eth){
+      addProvider(null, eth);
+    }
+  }
+
+  /* The announced id is the only claim a wallet cannot fake by setting a flag on
+     itself, so it wins. The flag check is the fallback, with Phantom excluded
+     because it sets isMetaMask on purpose. */
+  function metamask(){
+    var i;
+    for(i = 0; i < providers.length; i++){
+      if(providers[i].info && providers[i].info.rdns === 'io.metamask') return providers[i].provider;
+    }
+    for(i = 0; i < providers.length; i++){
+      var p = providers[i].provider;
+      if(p && p.isMetaMask && !notMetaMask(p)) return p;
+    }
+    return null;
+  }
+
+  function walletNames(){
+    var out = [];
+    for(var i = 0; i < providers.length; i++){
+      var n = (providers[i].info && providers[i].info.name) || 'Wallet';
+      if(out.indexOf(n) === -1) out.push(n);
+    }
+    return out;
+  }
+
+  discoverWallets();
+
+  var VERIFY_KEY = 'justflip-verified-v1';
+
+  // sessionStorage, not localStorage, precisely because it dies with the tab
+  function verifiedGet(){
+    try{ return JSON.parse(sessionStorage.getItem(VERIFY_KEY) || 'null'); }catch(e){ return null; }
+  }
+  function verifiedSet(a){
+    try{ sessionStorage.setItem(VERIFY_KEY, JSON.stringify({ address: a, at: Date.now() })); }catch(e){}
+  }
+  function verifiedClear(){
+    try{ sessionStorage.removeItem(VERIFY_KEY); }catch(e){}
+  }
+  function sameAddr(a, b){ return !!a && !!b && String(a).toLowerCase() === String(b).toLowerCase(); }
+
+  function makeNonce(){
+    var c = window.crypto || window.msCrypto, out = '';
+    if(c && c.getRandomValues){
+      var b = new Uint8Array(16);
+      c.getRandomValues(b);
+      for(var i = 0; i < b.length; i++){ out += ('0' + b[i].toString(16)).slice(-2); }
+      return out;
+    }
+    // no crypto source is not a reason to reuse one message forever
+    return String(Date.now()) + Math.random().toString(16).slice(2);
+  }
+
+  function signToVerify(address){
+    var msg = 'Just Flip'
+      + String.fromCharCode(10, 10) + 'Sign in to prove this wallet is yours.'
+      + String.fromCharCode(10, 10) + 'Wallet: ' + address
+      + String.fromCharCode(10) + 'Nonce: ' + makeNonce()
+      + String.fromCharCode(10) + 'Issued: ' + new Date().toISOString()
+      + String.fromCharCode(10, 10) + 'Signature only. No funds move and no transaction is approved.';
+    return metamask().request({ method: 'personal_sign', params: [msg, address] })
+      .then(function(sig){
+        // 65 bytes: r, s and v. Anything else did not come back from a real signer.
+        if(typeof sig !== 'string' || !/^0x[0-9a-fA-F]{130}$/.test(sig)){
+          var e = new Error('bad signature'); e.code = 'BADSIG'; throw e;
+        }
+        verifiedSet(address);
+        return sig;
+      });
+  }
+
+  /* Put the player back outside the door and wipe the session with them. */
+  function lockOut(why){
+    verifiedClear();
+    state.wallet = '';
+    state.guest = false;
+    persist();
+    renderGuestBar();
+    document.body.classList.remove('in-game');
+    if(walletModal) walletModal.hidden = true;
+    showStart();
+    document.getElementById('walletNote').textContent = why || 'Wallet disconnected. Verify again to keep playing.';
+  }
+
   var btnWallet = document.getElementById('btnWallet');
   var walletNote = document.getElementById('walletNote');
 
@@ -2088,37 +2575,192 @@
   // and the address is the player's identity
   function shortAddr(a){ return a.slice(0, 6) + '...' + a.slice(-4); }
 
-  function connectWallet(){
-    var eth = window.ethereum;
-    if(!eth){
-      walletNote.textContent = 'No wallet in this window. Browser extensions cannot reach a sandboxed page - host this file yourself and it will connect.';
+  /* Where to look when no window appears. Written out rather than abbreviated:
+     the people who need this line are the ones who have never seen it before. */
+  var TOOLBAR = 'If no window opened, click the puzzle piece in your browser toolbar, top right, then pick <b>MetaMask</b>.';
+  var walletHelp = document.getElementById('walletHelp');
+  var walletNudge = 0;
+
+  function showWalletHelp(head, body){
+    document.getElementById('walletHelpHead').textContent = head;
+    /* every string below is a literal written here, never anything a stranger typed */
+    document.getElementById('walletHelpText').innerHTML = body;
+    walletHelp.hidden = false;
+  }
+  function hideWalletHelp(){
+    walletHelp.hidden = true;
+    document.getElementById('btnInstall').hidden = true;
+    clearTimeout(walletNudge);
+  }
+  function noWallet(){
+    showWalletHelp('No wallet in this browser',
+      'Just Flip cannot find MetaMask here. Install it, reload this page, then open this list again. Guests can play without one.');
+    document.getElementById('btnInstall').hidden = false;
+  }
+
+  /* The picker. One row today, but the shape is the one every wallet list uses,
+     so a second name drops in beside MetaMask without a redesign. */
+  var walletModal = document.getElementById('walletModal');
+  var rowMetaMask = document.getElementById('rowMetaMask');
+
+  /* A phone has no extension to inject a provider, so a plain "not detected" is a
+     dead end there. The app link hands this page to MetaMask's own browser, which
+     does have one. */
+  function isPhone(){ return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || ''); }
+  function appLink(){
+    return 'https://metamask.app.link/dapp/' + location.host + location.pathname;
+  }
+  function markDetected(){
+    var tag = document.getElementById('mmTag');
+    if(!tag) return;
+    var has = !!metamask();
+    tag.textContent = has ? 'Detected' : (isPhone() ? 'Open app' : 'Not detected');
+    tag.className = 'wallet-row-tag' + (has ? '' : ' off');
+
+    var found = document.getElementById('walletFound');
+    if(found){
+      var names = walletNames();
+      found.textContent = names.length
+        ? 'Wallets announcing themselves here: ' + names.join(', ')
+        : 'No wallet extension announced itself in this browser.';
+    }
+  }
+  function openPicker(){
+    markDetected();
+    hideWalletHelp();
+    walletModal.hidden = false;
+    rowMetaMask.focus();
+  }
+  function closePicker(){
+    walletModal.hidden = true;
+    clearTimeout(walletNudge);
+    btnWallet.disabled = false;
+    btnWallet.focus();
+  }
+
+  document.getElementById('wmodalClose').addEventListener('click', closePicker);
+  // a click that lands on the backdrop and not the card is a click outside
+  walletModal.addEventListener('click', function(e){
+    if(e.target === walletModal) closePicker();
+  });
+  document.addEventListener('keydown', function(e){
+    if(!walletModal.hidden && (e.key === 'Escape' || e.key === 'Esc')){
+      e.stopPropagation();
+      closePicker();
+    }
+  }, true);
+  rowMetaMask.addEventListener('click', function(){
+    if(metamask()){ connectWallet(); return; }
+    if(isPhone()){
+      showWalletHelp('Opening MetaMask',
+        'Handing this page to the MetaMask app. If nothing switches over, open MetaMask yourself and load Just Flip in its built in browser.');
+      window.location.href = appLink();
       return;
     }
+    noWallet();
+  });
+
+  function connectWallet(){
+    var eth = metamask();
+    if(!eth){ noWallet(); return; }
     btnWallet.disabled = true;
-    walletNote.textContent = 'Check MetaMask...';
+    walletNote.textContent = '';
+    showWalletHelp('Waiting for MetaMask',
+      'Open the MetaMask window and press <b>Connect</b>. ' + TOOLBAR);
+
+    // the request can sit unanswered for as long as it likes, so after a few
+    // seconds say so plainly instead of leaving a spinner to speak for us
+    clearTimeout(walletNudge);
+    walletNudge = setTimeout(function(){
+      showWalletHelp('Still waiting',
+        'MetaMask has not answered. ' + TOOLBAR + ' The request stays open until you approve or reject it.');
+    }, 2000);
+
     eth.request({ method: 'eth_requestAccounts' }).then(function(accounts){
       if(accounts && accounts.length){
-        state.wallet = accounts[0];
-        persist();
-        walletNote.textContent = 'Connected ' + shortAddr(accounts[0]);
-        afterConnect();
+        clearTimeout(walletNudge);
+        // access granted is not proof of ownership, so ask for the signature next
+        showWalletHelp('One more step',
+          'MetaMask is asking you to sign a short message. It is <b>free</b>, moves no funds and approves no transaction. Press <b>Sign</b> to finish.');
+        return signToVerify(accounts[0]).then(function(){
+          hideWalletHelp();
+          walletModal.hidden = true;
+          state.wallet = accounts[0];
+          state.guest = false;
+          persist();
+          renderGuestBar();
+          walletNote.textContent = 'Verified ' + shortAddr(accounts[0]);
+          afterConnect();
+        });
       }else{
-        walletNote.textContent = 'No account was shared.';
+        showWalletHelp('No account shared',
+          'MetaMask connected but handed over no account. Pick it again above to retry.');
       }
     }).catch(function(err){
-      walletNote.textContent = (err && err.code === 4001)
-        ? 'You rejected the request.'
-        : 'Could not connect to the wallet.';
+      var code = err && err.code;
+      verifiedClear();
+      if(code === 'BADSIG'){
+        showWalletHelp('Signature did not check out',
+          'MetaMask returned something that is not a valid signature, so the wallet stays unverified. Pick it again above to retry.');
+      }else if(code === 4001){
+        showWalletHelp('You turned it down',
+          'The request was rejected in MetaMask. Just Flip needs a verified wallet to play, so pick it again above when you are ready.');
+      }else if(code === -32002){
+        // MetaMask already holds our request, almost always behind this window
+        showWalletHelp('MetaMask is already asking',
+          'A request from Just Flip is waiting. ' + TOOLBAR + ' Approve it there and this screen moves on.');
+      }else{
+        showWalletHelp('Could not reach the wallet',
+          'MetaMask did not answer. Pick it again above to retry.');
+      }
     }).then(function(){
+      clearTimeout(walletNudge);
       btnWallet.disabled = false;
     });
   }
 
-  btnWallet.addEventListener('click', connectWallet);
+  btnWallet.addEventListener('click', openPicker);
+
+  /* Bind to the MetaMask provider itself, not to whatever currently owns the
+     window.ethereum slot, or these fire for the wrong wallet. */
+  var mmEvents = metamask();
+  if(mmEvents && mmEvents.on){
+    /* The session is tied to one address. Losing it, or swapping it, ends the
+       session rather than quietly letting play carry on unverified. */
+    mmEvents.on('accountsChanged', function(acc){
+      var seen = verifiedGet();
+      if(!acc || !acc.length){
+        lockOut('MetaMask is locked or disconnected. Verify again to keep playing.');
+        return;
+      }
+      if(seen && !sameAddr(acc[0], seen.address)){
+        lockOut('You switched accounts. Verify the new one to keep playing.');
+        return;
+      }
+      state.wallet = acc[0];
+      persist();
+      renderStats();
+    });
+    // some builds fire this instead when the wallet goes away entirely
+    mmEvents.on('disconnect', function(){
+      lockOut('The wallet disconnected. Verify again to keep playing.');
+    });
+  }
+  /* The bar is the standing reminder that this run is a peek, and the way out of
+     it without going back to the gate. */
+  function renderGuestBar(){
+    var bar = document.getElementById('guestBar');
+    if(bar) bar.hidden = !(state.guest && document.body.classList.contains('in-game'));
+  }
+
   document.getElementById('btnGuest').addEventListener('click', function(){
+    state.guest = true;
     state.wallet = '';
+    verifiedClear();
+    persist();
     afterConnect();
   });
+  document.getElementById('btnVerifyNow').addEventListener('click', openPicker);
   document.getElementById('btnContinue').addEventListener('click', beginPlay);
   document.getElementById('btnStart').addEventListener('click', startFresh);
   document.getElementById('btnNewGame').addEventListener('click', function(){
@@ -2136,16 +2778,19 @@
   });
 
   document.addEventListener('keydown', function(e){
-    if(e.code !== 'Space') return;
+    // Enter opens the door and nothing else: past the boot screen it belongs to
+    // whichever control has focus, so it is handed straight back
+    var go = (e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter');
+    if(!go) return;
     if(!bootReady || !boot.classList.contains('hide')){
       e.preventDefault();
       enterGame();
       return;
     }
+    if(e.code !== 'Space') return;
     if(startScreen.classList.contains('on') && !startGate.hidden){
       e.preventDefault();
-      var guestBtn = document.getElementById('btnGuest');
-      (guestBtn.hidden ? document.getElementById('btnWallet') : guestBtn).click();
+      document.getElementById('btnWallet').click();
       return;
     }
     if(startScreen.classList.contains('on')){
@@ -2174,6 +2819,28 @@
   });
 
   bootEnter.addEventListener('click', enterGame);
+  // a thumb aims at the screen, not at a 140px button
+  boot.addEventListener('click', enterGame);
+
+  /* A thumb and a mouse do not take the same instruction, and Just Flip is headed
+     for Telegram where there is no Space bar at all. Pick the wording once from
+     what the device can actually do, rather than shipping a keyboard hint to a
+     phone. */
+  (function(){
+    var touchFirst = !(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+    var hint = document.getElementById('barHint');
+    var tutor = document.getElementById('tutorThrow');
+    if(hint){
+      hint.innerHTML = touchFirst
+        ? 'Tap the coin to flip'
+        : 'Press <span class="kbd">Space</span> to flip';
+    }
+    if(tutor){
+      tutor.innerHTML = touchFirst
+        ? 'Two ways, one toss: tap the coin, or tap the <b>FLIP</b> button.'
+        : 'Three ways, one toss: press <span class="kbd">Space</span>, click <b>FLIP</b>, or click the coin.';
+    }
+  })();
 
   renderStats();
   renderHistory();
@@ -2182,3 +2849,5 @@
   setStatus('Ready', false);
 })();
 </script>
+</body>
+</html>

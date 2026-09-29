@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://justflip-coin.github.io/justflipcoin/sitemap.xml
