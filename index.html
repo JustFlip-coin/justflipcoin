@@ -569,6 +569,8 @@
   .start-input{
     font-family:var(--font-display);
     font-size:14px;
+    /* raised to 16 on touch below: under that, iOS zooms the page in on focus and
+       leaves it there */
     width:100%;
     padding:13px 12px;
     margin-bottom:16px;
@@ -1139,12 +1141,29 @@
     color:var(--amber-bright);
   }
 
-  /* browsers hold a tap for 300ms to see whether it becomes a double tap zoom.
-     manipulation opts out of that wait, which is the single biggest thing that
-     makes a phone feel slow here. */
-  button, a, .coin, .wallet-row, input{
+  /* manipulation drops the double tap to zoom gesture while keeping scrolling and
+     pinch zoom, so the page cannot zoom itself out from under a player tapping
+     fast. It belongs on the root: scoped to a handful of controls it only covered
+     those, and a thumb landing a pixel beside a button was still double tapping
+     the page. It also removes the 300ms the browser otherwise waits on every tap
+     to see whether a second one is coming. */
+  html, body{
     touch-action:manipulation;
-    -webkit-tap-highlight-color:transparent;
+    -webkit-text-size-adjust:100%;
+    text-size-adjust:100%;
+  }
+  /* The spec says a touch takes the intersection of this property up the ancestor
+     chain, so the root alone should be enough. Older WebViews have not always
+     agreed, and Telegram ships one, so the elements that actually get hammered
+     say it themselves rather than trusting the walk. */
+  button, a, input, .coin, .coin-art, .wallet-row, .stage, .wrap, .start, .wmodal{
+    touch-action:manipulation;
+  }
+  *{-webkit-tap-highlight-color:transparent;}
+  /* spam tapping a label selects it, and the blue smear reads as a glitch */
+  button, .coin, .wallet-row, .stage, .statusbar, .stats{
+    -webkit-user-select:none;
+    user-select:none;
   }
 
   /* backdrop-filter makes the compositor re-read and blur everything behind the
@@ -1171,6 +1190,10 @@
     .flip-btn, .start-btn, .call-btn{min-height:46px;}
     .wallet-row{padding:14px;}
     .guest-bar-btn{flex:1 0 100%; min-height:42px;}
+  }
+
+  @media (pointer: coarse){
+    .start-input{font-size:16px;}
   }
 
   @media (max-width:420px){
