@@ -17,17 +17,23 @@ It needs Pillow, and it reads the coin drawing code from `../brand/make_coins.py
 
 ## What is in here
 
-### `logo/` — transparent, for putting on top of things
+### `logo/`
+
+Transparent marks, for putting on top of things.
 
 Twelve files: the gold Heads coin, the silver Tails coin, and the split coin, each at 1024, 512, 256 and 128 pixels. The background is genuinely transparent, so these drop straight onto footage, a thumbnail, or a slide without a box around them.
 
 Use the 1024 for anything that fills a screen and the 128 for a favicon or a corner mark. They are pixel art, so scale them by whole numbers where you can, and turn off smoothing in your editor or the edges go soft.
 
-### `avatar/` — square, for profile pictures
+### `avatar/`
+
+Square, for profile pictures.
 
 `avatar-800.png` for X, Telegram and Discord. `avatar-400.png` for anywhere that asks for something smaller. Both are the two coins on the violet ground with the faint scatter behind.
 
-### `social/` — sized to the slots the platforms actually use
+### `social/`
+
+Sized to the slots the platforms actually use.
 
 `x-header-1500x500.png` is the X banner. Keep anything important away from the far left, that is where the profile picture sits on top.
 
@@ -35,7 +41,19 @@ Use the 1024 for anything that fills a screen and the 128 for a favicon or a cor
 
 `og-1200x630.png` is the link preview card. This one is already wired into the site, so you only need it if you are making a variant.
 
-### `video/` — plates to shoot over
+`youtube-thumb-1280x720.png` is a finished thumbnail, and `youtube-plate-1280x720.png` is the same size with the middle clear, for a title or a face.
+
+### `screenshots/`
+
+The real game.
+
+Seven stills captured from the running game: loading, the gate, the wallet picker, name entry, the board, a winning call, and the jackpot. These are the ones to cut into a video when you want to show what the thing actually does.
+
+`just-flip.gif` is the coin looping, for anywhere a still is not enough.
+
+### `video/`
+
+Plates to shoot over.
 
 `bg-1920x1080.png` and `bg-1080x1920.png` carry the coins and the wordmark. Horizontal for YouTube, vertical for Reels, TikTok and Shorts.
 

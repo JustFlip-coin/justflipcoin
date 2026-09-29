@@ -134,7 +134,11 @@ def banner(w, h, path, coin_frac=0.46, title=True):
 banner(1500, 500, "social/x-header-1500x500.png", coin_frac=0.52)
 banner(1080, 1080, "social/square-1080.png", coin_frac=0.40)
 banner(1200, 630, "social/og-1200x630.png", coin_frac=0.46)
-print("social: 3 files")
+banner(1280, 720, "social/youtube-thumb-1280x720.png", coin_frac=0.44)
+# same ratio with the middle left clear, for a title or a face
+plate = scatter(ground(1280, 720, bright=0.8), 11, 1280 * 0.62, 720 * 0.52, 115, 30, 56)
+plate.save("social/youtube-plate-1280x720.png")
+print("social: 5 files")
 
 # ---------------- video plates ----------------
 banner(1920, 1080, "video/bg-1920x1080.png", coin_frac=0.40)
