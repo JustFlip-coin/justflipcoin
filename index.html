@@ -237,6 +237,8 @@
 
   @media (prefers-reduced-motion:reduce){
     .wallet-dot{animation:none;}
+    /* soften, never remove: the panel still moves, just without the overshoot */
+    .wmodal-card{transition:transform .12s ease;}
     #boot.ready .boot-enter{animation:none;}
     .boot-enter{transition:none;}
   }
@@ -612,7 +614,21 @@
     -webkit-backdrop-filter:blur(3px);
     backdrop-filter:blur(3px);
   }
-  .wmodal[hidden]{display:none;}
+  /* display:none cannot be transitioned, so the panel is held in the layout and
+     faded instead. visibility carries the delay so it only leaves once the fade
+     has finished, and it still takes the card out of the tab order while shut. */
+  .wmodal{
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transition:opacity .2s ease, visibility 0s linear .2s;
+  }
+  .wmodal.on{
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+    transition:opacity .2s ease, visibility 0s;
+  }
   .wmodal-card{
     width:100%;
     max-width:360px;
@@ -622,7 +638,12 @@
     padding:16px;
     text-align:left;
     box-shadow:0 18px 50px rgba(0,0,0,.55);
+    transform:translateY(18px) scale(.95);
+    /* overshoots a touch on the way in, which is what makes it feel like it
+       arrived rather than simply appeared */
+    transition:transform .28s cubic-bezier(.18,.89,.32,1.28);
   }
+  .wmodal.on .wmodal-card{transform:none;}
   .wmodal-head{
     display:flex;
     align-items:center;
@@ -747,6 +768,42 @@
     height:1px;
     background:var(--panel-line);
   }
+  .nudge-card{text-align:center;}
+  .nudge-badge{
+    display:inline-flex;
+    align-items:baseline;
+    gap:8px;
+    margin:2px 0 14px;
+    padding:9px 16px;
+    border-radius:999px;
+    background:rgba(167,139,250,.12);
+    border:1px solid var(--panel-line);
+  }
+  .nudge-badge b{
+    font-family:var(--font-display);
+    font-size:22px;
+    color:var(--amber-bright);
+  }
+  .nudge-badge span{
+    font-size:12px;
+    letter-spacing:.16em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .nudge-title{
+    margin:0 0 8px;
+    font-family:var(--font-display);
+    font-size:13px;
+    line-height:1.6;
+    color:var(--text);
+  }
+  .nudge-text{
+    margin:0 0 18px;
+    font-size:14px;
+    line-height:1.6;
+    color:var(--text-dim);
+  }
+  .nudge-actions{display:flex; flex-direction:column; gap:9px;}
   .guest-bar{
     display:flex;
     align-items:center;
@@ -1161,7 +1218,7 @@
   </div>
 </div>
 
-<div class="wmodal" id="walletModal" hidden>
+<div class="wmodal" id="walletModal">
   <div class="wmodal-card" role="dialog" aria-modal="true" aria-labelledby="wmodalTitle">
     <div class="wmodal-head">
       <h3 class="wmodal-title" id="wmodalTitle">Connect a wallet</h3>
@@ -1191,6 +1248,18 @@
       <p id="walletHelpText"></p>
     </div>
     <a class="start-btn" id="btnInstall" href="https://metamask.io/download" target="_blank" rel="noopener noreferrer" hidden>Get MetaMask</a>
+  </div>
+</div>
+
+<div class="wmodal" id="streakNudge">
+  <div class="wmodal-card nudge-card" role="dialog" aria-modal="true" aria-labelledby="nudgeTitle">
+    <div class="nudge-badge"><b id="nudgeCount">3</b><span>in a row</span></div>
+    <h3 class="nudge-title" id="nudgeTitle">This run is going somewhere</h3>
+    <p class="nudge-text">Guest streaks never reach the leaderboard. Verify your wallet and your best run lands on the board under your own address, right next to everyone else chasing it.</p>
+    <div class="nudge-actions">
+      <button class="start-btn primary" id="nudgeVerify" type="button">Verify wallet</button>
+      <button class="start-btn" id="nudgeLater" type="button">Keep playing as guest</button>
+    </div>
   </div>
 </div>
 
@@ -2307,7 +2376,8 @@
   }
 
   function flip(){
-    if(spinning || celebrating) return;
+    // a panel covers the coin but Space does not know that on its own
+    if(spinning || celebrating || anyModalOpen()) return;
     spinning = true;
     music.start();
     flipBtn.disabled = true;
@@ -2400,6 +2470,7 @@
 
       bg.hit(hit);
       if(hit && state.streak % 5 === 0) jackpot(state.streak);
+      if(hit && state.streak === 3) maybeNudge(state.streak);
       // jackpot() runs just above and freezes play; without these guards the lines
       // below would hand control straight back and cancel the pause
       setStatus(celebrating ? 'Jackpot' : 'Ready', celebrating);
@@ -2563,7 +2634,7 @@
     persist();
     renderGuestBar();
     document.body.classList.remove('in-game');
-    if(walletModal) walletModal.hidden = true;
+    if(walletModal) modalShut(walletModal);
     showStart();
     document.getElementById('walletNote').textContent = why || 'Wallet disconnected. Verify again to keep playing.';
   }
@@ -2601,7 +2672,41 @@
   /* The picker. One row today, but the shape is the one every wallet list uses,
      so a second name drops in beside MetaMask without a redesign. */
   var walletModal = document.getElementById('walletModal');
+  var streakNudge = document.getElementById('streakNudge');
   var rowMetaMask = document.getElementById('rowMetaMask');
+
+  function modalOpen(el){ el.classList.add('on'); }
+  function modalShut(el){ el.classList.remove('on'); }
+  function isOpen(el){ return el.classList.contains('on'); }
+  function anyModalOpen(){ return isOpen(walletModal) || isOpen(streakNudge); }
+
+  /* The ask lands once, on a streak worth keeping, and never again this session.
+     Asking on arrival is asking before there is anything to lose; asking every
+     few flips is nagging. Three in a row is the first moment a guest has a run
+     they would mind throwing away. */
+  var NUDGE_KEY = 'justflip-nudged-v1';
+  function alreadyNudged(){
+    try{ return sessionStorage.getItem(NUDGE_KEY) === '1'; }catch(e){ return false; }
+  }
+  function maybeNudge(streak){
+    if(!state.guest || alreadyNudged() || anyModalOpen()) return;
+    try{ sessionStorage.setItem(NUDGE_KEY, '1'); }catch(e){}
+    document.getElementById('nudgeCount').textContent = streak;
+    modalOpen(streakNudge);
+    document.getElementById('nudgeVerify').focus();
+  }
+
+  document.getElementById('nudgeVerify').addEventListener('click', function(){
+    modalShut(streakNudge);
+    openPicker();
+  });
+  document.getElementById('nudgeLater').addEventListener('click', function(){
+    modalShut(streakNudge);
+    flipBtn.focus();
+  });
+  streakNudge.addEventListener('click', function(e){
+    if(e.target === streakNudge){ modalShut(streakNudge); flipBtn.focus(); }
+  });
 
   /* A phone has no extension to inject a provider, so a plain "not detected" is a
      dead end there. The app link hands this page to MetaMask's own browser, which
@@ -2628,11 +2733,11 @@
   function openPicker(){
     markDetected();
     hideWalletHelp();
-    walletModal.hidden = false;
+    modalOpen(walletModal);
     rowMetaMask.focus();
   }
   function closePicker(){
-    walletModal.hidden = true;
+    modalShut(walletModal);
     clearTimeout(walletNudge);
     btnWallet.disabled = false;
     btnWallet.focus();
@@ -2644,7 +2749,12 @@
     if(e.target === walletModal) closePicker();
   });
   document.addEventListener('keydown', function(e){
-    if(!walletModal.hidden && (e.key === 'Escape' || e.key === 'Esc')){
+    if(e.key !== 'Escape' && e.key !== 'Esc') return;
+    if(isOpen(streakNudge)){
+      e.stopPropagation();
+      modalShut(streakNudge);
+      flipBtn.focus();
+    }else if(isOpen(walletModal)){
       e.stopPropagation();
       closePicker();
     }
@@ -2684,7 +2794,7 @@
           'MetaMask is asking you to sign a short message. It is <b>free</b>, moves no funds and approves no transaction. Press <b>Sign</b> to finish.');
         return signToVerify(accounts[0]).then(function(){
           hideWalletHelp();
-          walletModal.hidden = true;
+          modalShut(walletModal);
           state.wallet = accounts[0];
           state.guest = false;
           persist();
